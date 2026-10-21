@@ -14,7 +14,7 @@
 <!-- ============ CURRICULUM MAP (landing) ============ -->
 <section id="map" class="screen active">
   <header class="apphead">
-    <div><h1>Piano Path</h1><div class="muted small" id="mapSub">Beginner → expert, one unit at a time</div></div>
+    <div><h1>Piano Path</h1><div class="muted small" id="mapSub">From first notes to improvising, one unit at a time</div></div>
     <div class="headbtns"><span class="badge" id="dayStreak" title="Days in a row">🔥 0</span><button class="icon" data-open="settings" aria-label="Settings">⚙︎</button></div>
   </header>
   <div class="row quick">
@@ -23,7 +23,7 @@
   </div>
   <div class="pill-row"><div class="pill mic-pill"><span class="dot"></span><span class="mic-txt">Mic off. It starts when you open a drill</span></div><div class="pill midi-pill" hidden><span class="dot"></span><span class="midi-txt">MIDI</span></div></div>
   <ol class="units" id="unitList"></ol>
-  <h3 class="soon-h">Coming soon: expert units</h3>
+  <h3 class="soon-h" id="soonH">Coming soon</h3>
   <ul class="units soon" id="soonList"></ul>
 </section>
 
@@ -62,6 +62,7 @@
     <div class="staff-wrap" id="lessonVisual"></div>
     <p id="lessonText"></p>
     <div class="mastery-line"><div class="bar"><div id="lessonBar"></div></div><span id="lessonPct"></span></div>
+    <div id="lessonChecklist" class="checklist"></div>
     <p class="muted small" id="lessonRule"></p>
   </div>
   <button id="btnStartDrill" class="big primary">Start drill</button>
@@ -80,6 +81,8 @@
     <div class="prompt" id="dBig"></div>
     <div class="staff-wrap" id="dStaff"></div>
     <div class="prompt-sub" id="dSub"></div>
+    <div class="beats" id="dBeats"></div>
+    <button id="dStart" class="primary" hidden>▶ Start</button>
     <div class="chips seq" id="dSeq"></div>
     <div class="choices" id="dChoices"></div>
     <div class="status" id="dStatus"></div>

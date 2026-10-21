@@ -19,7 +19,16 @@
     dom7: { name: 'dominant 7th', suffix: '7', iv: [0, 4, 7, 10] },
     maj7: { name: 'major 7th', suffix: 'maj7', iv: [0, 4, 7, 11] },
     min7: { name: 'minor 7th', suffix: 'm7', iv: [0, 3, 7, 10] },
+    m7b5: { name: 'half-diminished 7th', suffix: 'm7b5', iv: [0, 3, 6, 10] },
+    dim7: { name: 'diminished 7th', suffix: 'dim7', iv: [0, 3, 6, 9] },
+    six: { name: 'major 6th', suffix: '6', iv: [0, 4, 7, 9], ext: true },
+    add9: { name: 'add 9', suffix: 'add9', iv: [0, 4, 7, 14], ext: true },
+    sus7: { name: '7sus4', suffix: '7sus4', iv: [0, 5, 7, 10], ext: true },
+    maj9: { name: 'major 9th', suffix: 'maj9', iv: [0, 4, 7, 11, 14], ext: true },
+    dom9: { name: 'dominant 9th', suffix: '9', iv: [0, 4, 7, 10, 14], ext: true },
+    min9: { name: 'minor 9th', suffix: 'm9', iv: [0, 3, 7, 10, 14], ext: true },
   };
+  const BASIC_TYPES = Object.keys(CHORD_TYPES).filter((k) => !CHORD_TYPES[k].ext);
 
   const midiToFreq = (m, a4 = 440) => a4 * Math.pow(2, (m - 69) / 12);
   const freqToMidi = (f, a4 = 440) => 69 + 12 * Math.log2(f / a4);
@@ -232,12 +241,12 @@
   }
 
   /** Name the best-fitting chord for a chroma vector (for the "what I hear" readout). */
-  function identifyChord(chroma, types = Object.keys(CHORD_TYPES), thr = 0.25) {
+  function identifyChord(chroma, types = BASIC_TYPES, thr = 0.25) {
     const present = []; for (let pc = 0; pc < 12; pc++) if (chroma[pc] >= thr) present.push(pc);
     if (present.length < 2) return null;
     let best = null;
     for (const t of types) for (let r = 0; r < 12; r++) {
-      const pcs = CHORD_TYPES[t].iv.map((i) => (r + i) % 12);
+      const pcs = [...new Set(CHORD_TYPES[t].iv.map((i) => (r + i) % 12))];
       let s = 0; for (let pc = 0; pc < 12; pc++) s += pcs.includes(pc) ? chroma[pc] : -0.8 * chroma[pc];
       s -= 0.05 * pcs.length;
       if (!best || s > best.s) best = { s, root: r, type: t, pcs };
@@ -298,8 +307,74 @@
     return b;
   }
 
+  // ---------------- rhythm ----------------
+  const DUR = { w: 4, h: 2, q: 1, e: 0.5, s: 0.25 };
+  /** "q e e q. e | h~q qr" → [{dur, rest, tie, bar, pos}] (durations in quarter notes) */
+  function parseRhythm(str) {
+    const out = []; let bar = 0, pos = 0;
+    for (const tok of str.replace(/~/g, '~ ').trim().split(/\s+/)) {
+      if (tok === '|') { bar++; continue; }
+      const m = /^([whqes])(\.?)(r?)(~?)$/.exec(tok); if (!m) throw new Error('bad rhythm token ' + tok);
+      const dur = DUR[m[1]] * (m[2] ? 1.5 : 1);
+      out.push({ sym: m[1], dot: !!m[2], rest: !!m[3], tie: !!m[4], dur, bar, pos }); pos += dur;
+    }
+    return out;
+  }
+  /** onset positions (in quarter notes) of a parsed rhythm: notes that are not rests and not tied-into */
+  function rhythmOnsets(els) {
+    const on = [];
+    els.forEach((e, i) => { if (!e.rest && !(i > 0 && els[i - 1].tie)) on.push({ pos: e.pos, idx: i }); });
+    return on;
+  }
+  /**
+   * Grade detected onset times against expected times (ms). A constant offset (input/output latency,
+   * reaction) is estimated as the median error and removed (clamped to ±maxComp).
+   */
+  function gradeRhythm(expected, detected, opts = {}) {
+    const tol = opts.tol ?? 120, maxComp = opts.maxComp ?? 180;
+    const errs = [];
+    for (const e of expected) { let best = null; for (const d of detected) { const x = d.t - e.t; if (Math.abs(x) <= maxComp + tol && (best == null || Math.abs(x) < Math.abs(best))) best = x; } if (best != null) errs.push(best); }
+    errs.sort((a, b) => a - b);
+    const offset = errs.length ? Math.max(-maxComp, Math.min(maxComp, errs[errs.length >> 1])) : 0;
+    const used = new Set(), hits = [], misses = [];
+    expected.forEach((e, i) => {
+      let bj = -1, bx = Infinity;
+      detected.forEach((d, j) => { if (used.has(j)) return; const x = d.t - e.t - offset; if (Math.abs(x) <= tol && Math.abs(x) < Math.abs(bx)) { bx = x; bj = j; } });
+      if (bj < 0) { misses.push(i); return; }
+      used.add(bj);
+      const pcOk = e.pc == null || detected[bj].pc === e.pc;
+      hits.push({ i, err: Math.round(bx), pcOk, pc: detected[bj].pc });
+      if (!pcOk) misses.push(i);
+    });
+    const lo = expected[0].t + offset - tol, hi = expected[expected.length - 1].t + offset + (opts.tailMs ?? tol);
+    const extras = detected.filter((d, j) => !used.has(j) && d.t >= lo && d.t <= hi);
+    const ok = misses.length === 0 && extras.length <= (opts.allowExtra ?? 0);
+    const meanAbs = hits.length ? Math.round(hits.reduce((s, h) => s + Math.abs(h.err), 0) / hits.length) : null;
+    return { ok, hits, misses, extras, offset: Math.round(offset), meanAbs };
+  }
+
+  /** Envelope onset tracker working on the newest samples of each analyser snapshot (≈5 ms resolution). */
+  class OnsetTracker {
+    constructor(block = 256) { this.block = block; this.hist = []; this.lastOnset = -1e9; }
+    reset() { this.hist = []; }
+    process(buf, sr, nNew, nowMs, gate) {
+      const B = this.block, out = [];
+      nNew = Math.max(B, Math.min(nNew, buf.length - B));
+      const start = buf.length - Math.floor(nNew / B) * B;
+      for (let i = start; i + B <= buf.length; i += B) {
+        let e = 0; for (let k = i; k < i + B; k++) e += buf[k] * buf[k]; e = Math.sqrt(e / B);
+        const t = nowMs - (buf.length - i) / sr * 1000;           // block start time
+        const prev = this.hist.slice(-3), ref = prev.length ? prev.reduce((a, b) => a + b, 0) / prev.length : 0;
+        const floor = this.hist.slice(-24).reduce((a, b) => Math.min(a, b), Infinity);
+        if (e > gate && e > ref * 1.3 + gate * 0.15 && t - this.lastOnset > 80 && (e > floor * 1.6 || ref < gate)) { out.push({ t, level: e }); this.lastOnset = t; }
+        this.hist.push(e); if (this.hist.length > 64) this.hist.shift();
+      }
+      return out;
+    }
+  }
+
   const chordName = (root, type, flats = true) => (flats ? PC_FLAT : PC_SHARP)[root] + CHORD_TYPES[type].suffix;
 
-  const api = { PC_NAMES, PC_FLAT, PC_SHARP, CHORD_TYPES, midiToFreq, freqToMidi, midiName, magnitudeSpectrum, rms, yin, detectNotes, NoteWindow, matchChord, identifyChord, chordName, gradeWindow, lowestPc, pcsOf, fft };
+  const api = { PC_NAMES, PC_FLAT, PC_SHARP, CHORD_TYPES, midiToFreq, freqToMidi, midiName, magnitudeSpectrum, rms, yin, detectNotes, NoteWindow, matchChord, identifyChord, chordName, gradeWindow, lowestPc, BASIC_TYPES, parseRhythm, rhythmOnsets, gradeRhythm, OnsetTracker, pcsOf, fft };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.PianoDetect = api;
 })(typeof self !== 'undefined' ? self : this);

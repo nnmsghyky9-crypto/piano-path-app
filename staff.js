@@ -49,8 +49,9 @@
     }
     // notes
     const ps = notes.map((n) => ({ ...n, p: parse(n.name) })).filter((n) => n.p);
-    const sorted = opts.mode === 'chord' ? [...ps].sort((a, b) => a.p.d - b.p.d) : ps;
+    const sorted = opts.mode === 'chord' ? [...ps].sort((a, b) => a.p.d - b.p.d).filter((n) => !n.hidden) : ps;
     sorted.forEach((n, i) => {
+      if (n.hidden) return;
       let x = startX + (opts.mode === 'chord' ? 10 : i * step);
       if (opts.mode === 'chord' && i > 0 && sorted[i].p.d - sorted[i - 1].p.d === 1 && !sorted[i - 1].shifted) { x += 12; n.shifted = true; } // seconds side-by-side
       const y = yOf(n.p.d, clef), color = n.color || 'currentColor';
@@ -65,6 +66,98 @@
     if (opts.showQuestion) s += `<text x="${startX + (notes.length ? step || 40 : 10)}" y="${TOP + 26}" class="q">?</text>`;
     return s + '</svg>';
   }
-  const api = { render, parse };
+
+  // ---------------- grand staff (treble + bass) ----------------
+  /** opts: { notes:[{name, color}], mode:'chord'|'seq', keySig, labels, width } — notes ≥ C4 go to treble, below to bass (or n.staff) */
+  function renderGrand(opts = {}) {
+    const notes = (opts.notes || []).map((n) => (typeof n === 'string' ? { name: n } : n));
+    const isTreble = (n) => (n.staff ? n.staff === 'treble' : (parse(n.name).d >= 4 * 7));
+    const mk = (clef, list) => list.map((n) => (clef === (isTreble(n) ? 'treble' : 'bass') ? n : { ...n, hidden: true }));
+    const w = opts.width || Math.max(240, 110 + (opts.mode === 'chord' ? 60 : notes.length * 44));
+    const t = render({ ...opts, clef: 'treble', notes: mk('treble', notes), width: w, labels: null });
+    const b = opts.bassChord ? render({ clef: 'bass', notes: opts.bassChord, mode: 'chord', width: w }) : render({ ...opts, clef: 'bass', notes: mk('bass', notes), width: w, labels: opts.labels });
+    return `<div class="grand"><div class="brace"></div>${t}${b}</div>`;
+  }
+
+  // ---------------- rhythm / measure rendering ----------------
+  /**
+   * opts: { els: parsed rhythm [{sym,dot,rest,tie,dur,pos,bar,name?}], timeSig:[n,d], clef:'perc'|'treble'|'bass',
+   *         colors:{idx:color}, width, keySig, beatGroup (quarter notes per beam group) }
+   */
+  function renderMeasure(opts) {
+    const els = opts.els, clef = opts.clef || 'perc', ts = opts.timeSig || [4, 4];
+        const ks = opts.keySig || {}, nAcc = clef === 'perc' ? 0 : (ks.sharps || ks.flats || 0);
+    const W = opts.width || 360, H = 130;
+    const tsx = (clef === 'perc' ? 16 : 50 + nAcc * 10), x0 = tsx + 20, x1 = W - 16;
+    // spacing grows sub-linearly with duration so short notes stay readable
+    const wts = els.map((e) => Math.pow(e.dur, 0.6));
+    const sumW = wts.reduce((a, b) => a + b, 0) || 1, unit = (x1 - x0) / sumW;
+    const xs = []; let acc = 0; els.forEach((e, i) => { xs.push(x0 + 8 + acc * unit); acc += wts[i]; });
+    const X = (pos) => { const i = els.findIndex((e) => Math.abs(e.pos - pos) < 1e-6); if (i >= 0) return xs[i]; let a = 0; for (let k = 0; k < els.length; k++) { if (els[k].pos + els[k].dur > pos) return x0 + 8 + (a + wts[k] * (pos - els[k].pos) / els[k].dur) * unit; a += wts[k]; } return x1; };
+    const midY = TOP + 2 * SP;
+    let s = `<svg class="staff measure" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    if (clef === 'perc') s += `<line x1="4" x2="${W - 4}" y1="${midY}" y2="${midY}" stroke="currentColor"/>`;
+    else {
+      for (let i = 0; i < 5; i++) s += `<line x1="4" x2="${W - 4}" y1="${TOP + i * SP}" y2="${TOP + i * SP}" stroke="currentColor"/>`;
+      s += clefPath(clef, 10);
+      const off = clef === 'bass' ? -12 : 0;
+      for (let i = 0; i < nAcc; i++) { const d = (ks.sharps ? SHARP_D[i] : FLAT_D[i]) + off; s += `<text x="${46 + i * 10}" y="${yOf(d, clef) + 5}" class="acc">${ks.sharps ? '♯' : '♭'}</text>`; }
+    }
+    s += `<text x="${tsx}" y="${midY - 3}" class="ts">${ts[0]}</text><text x="${tsx}" y="${midY + 17}" class="ts">${ts[1]}</text>`;
+    // bar lines between elements whose bar index changes
+    for (let i = 1; i < els.length; i++) if (els[i].bar !== els[i - 1].bar) { const bx = (xs[i - 1] + xs[i]) / 2 + 2; s += `<line x1="${bx}" x2="${bx}" y1="${clef === 'perc' ? midY - 14 : TOP}" y2="${clef === 'perc' ? midY + 14 : BOTTOM}" stroke="currentColor"/>`; }
+    s += `<line x1="${W - 5}" x2="${W - 5}" y1="${clef === 'perc' ? midY - 14 : TOP}" y2="${clef === 'perc' ? midY + 14 : BOTTOM}" stroke="currentColor" stroke-width="2"/>`;
+    const headY = (e) => (clef === 'perc' || !e.name ? midY : yOf(parse(e.name).d, clef));
+    const stemUp = (e) => clef === 'perc' || headY(e) >= midY;
+    const pts = [];
+    els.forEach((e, i) => {
+      const x = xs[i], y = headY(e), col = (opts.colors && opts.colors[i]) || 'currentColor';
+      if (e.rest) { s += restGlyph(e, x, midY, col); pts.push(null); return; }
+      if (clef !== 'perc' && e.name) {
+        const p = parse(e.name), bd = BOTTOM_D[clef];
+        for (let d = bd - 2; d >= p.d; d -= 2) s += `<line x1="${x - 10}" x2="${x + 10}" y1="${yOf(d, clef)}" y2="${yOf(d, clef)}" stroke="currentColor"/>`;
+        for (let d = bd + 10; d <= p.d; d += 2) s += `<line x1="${x - 10}" x2="${x + 10}" y1="${yOf(d, clef)}" y2="${yOf(d, clef)}" stroke="currentColor"/>`;
+        if (p.acc && !e.hideAcc) s += `<text x="${x - 19}" y="${y + 5}" class="acc" fill="${col}">${ACC[p.acc]}</text>`;
+      }
+      const hollow = e.sym === 'w' || e.sym === 'h';
+      s += `<ellipse cx="${x}" cy="${y}" rx="6.2" ry="4.5" transform="rotate(-20 ${x} ${y})" fill="${hollow ? 'none' : col}" stroke="${col}" stroke-width="${hollow ? 1.8 : 0}"/>`;
+      if (e.dot) s += `<circle cx="${x + 11}" cy="${y - 2}" r="1.8" fill="${col}"/>`;
+      const up = stemUp(e), sx = up ? x + 5.6 : x - 5.6, sy = up ? y - 30 : y + 30;
+      if (e.sym !== 'w') s += `<line x1="${sx}" x2="${sx}" y1="${y}" y2="${sy}" stroke="${col}" stroke-width="1.4"/>`;
+      pts.push({ x, y, sx, sy, up, e, col, i });
+    });
+    // beams (eighths / sixteenths grouped within a beat group) or flags
+    const grp = opts.beatGroup || (ts[1] === 8 ? 1.5 : 1);
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i]; if (!p || !(p.e.sym === 'e' || p.e.sym === 's')) continue;
+      const g = Math.floor(p.e.pos / grp + 1e-6); const run = [p];
+      while (i + 1 < pts.length && pts[i + 1] && (pts[i + 1].e.sym === 'e' || pts[i + 1].e.sym === 's') && Math.floor(pts[i + 1].e.pos / grp + 1e-6) === g) run.push(pts[++i]);
+      if (run.length === 1) { const f = p.up ? `M${p.sx} ${p.sy} q 9 7 7 18` : `M${p.sx} ${p.sy} q 9 -7 7 -18`; s += `<path d="${f}" stroke="${p.col}" fill="none" stroke-width="1.6"/>`; if (p.e.sym === 's') s += `<path d="${p.up ? `M${p.sx} ${p.sy + 7} q 9 7 7 18` : `M${p.sx} ${p.sy - 7} q 9 -7 7 -18`}" stroke="${p.col}" fill="none" stroke-width="1.6"/>`; continue; }
+      const up = run[0].up, by = up ? Math.min(...run.map((r) => r.sy)) : Math.max(...run.map((r) => r.sy));
+      run.forEach((r) => (s += `<line x1="${r.sx}" x2="${r.sx}" y1="${r.y}" y2="${by}" stroke="${r.col}" stroke-width="1.4"/>`));
+      s += `<line x1="${run[0].sx}" x2="${run[run.length - 1].sx}" y1="${by}" y2="${by}" stroke="currentColor" stroke-width="4"/>`;
+      for (let k = 0; k < run.length; k++) if (run[k].e.sym === 's') {
+        const dy = up ? 7 : -7, a = run[k], b = run[k + 1] && run[k + 1].e.sym === 's' ? run[k + 1] : null;
+        if (b) { s += `<line x1="${a.sx}" x2="${b.sx}" y1="${by + dy}" y2="${by + dy}" stroke="currentColor" stroke-width="4"/>`; k++; }
+        else s += `<line x1="${a.sx - (k ? 9 : -9)}" x2="${a.sx}" y1="${by + dy}" y2="${by + dy}" stroke="currentColor" stroke-width="4"/>`;
+      }
+    }
+    // ties
+    pts.forEach((p, i) => { if (p && p.e.tie) { const q = pts.slice(i + 1).find(Boolean); if (q) s += `<path d="M${p.x + 4} ${p.y + 8} Q ${(p.x + q.x) / 2} ${p.y + 20} ${q.x - 4} ${q.y + 8}" stroke="currentColor" fill="none" stroke-width="1.4"/>`; } });
+    if (opts.labels) els.forEach((e, i) => { if (opts.labels[i]) s += `<text x="${xs[i]}" y="${H - 6}" class="lbl">${opts.labels[i]}</text>`; });
+    if (opts.playhead != null) s += `<line x1="${X(opts.playhead) - 8}" x2="${X(opts.playhead) - 8}" y1="${TOP - 14}" y2="${BOTTOM + 14}" stroke="#6ea8ff" stroke-width="2" opacity=".8"/>`;
+    return s + '</svg>';
+  }
+  function restGlyph(e, x, midY, col) {
+    switch (e.sym) {
+      case 'w': return `<rect x="${x - 6}" y="${midY - 10}" width="12" height="5" fill="${col}"/>`;
+      case 'h': return `<rect x="${x - 6}" y="${midY - 5}" width="12" height="5" fill="${col}"/>${e.dot ? `<circle cx="${x + 11}" cy="${midY - 4}" r="1.8" fill="${col}"/>` : ''}`;
+      case 'q': return `<path d="M${x - 3} ${midY - 14} l6 7 l-5 6 l6 7 q-7 -3 -6 5" stroke="${col}" stroke-width="2.2" fill="none" stroke-linejoin="round"/>`;
+      case 'e': return `<circle cx="${x - 3}" cy="${midY - 4}" r="2.6" fill="${col}"/><path d="M${x - 3} ${midY - 2} q5 1 7 -3 l-6 15" stroke="${col}" stroke-width="1.8" fill="none"/>`;
+      default: return `<circle cx="${x - 3}" cy="${midY - 4}" r="2.4" fill="${col}"/><circle cx="${x - 5}" cy="${midY + 3}" r="2.4" fill="${col}"/><path d="M${x - 3} ${midY - 2} q5 1 7 -3 l-7 20 M${x - 5} ${midY + 5} q5 1 6 -3" stroke="${col}" stroke-width="1.6" fill="none"/>`;
+    }
+  }
+
+  const api = { render, parse, renderGrand, renderMeasure };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Staff = api;
 })(typeof self !== 'undefined' ? self : this);
