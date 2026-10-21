@@ -58,14 +58,59 @@
 <!-- ============ LESSON ============ -->
 <section id="lesson" class="screen">
   <header class="subhead"><button class="icon" data-back aria-label="Back">←</button><div><div class="muted small" id="lessonLevel"></div><h2 id="lessonTitle"></h2></div></header>
-  <div class="card lesson-card">
-    <div class="staff-wrap" id="lessonVisual"></div>
-    <p id="lessonText"></p>
-    <div class="mastery-line"><div class="bar"><div id="lessonBar"></div></div><span id="lessonPct"></span></div>
-    <div id="lessonChecklist" class="checklist"></div>
-    <p class="muted small" id="lessonRule"></p>
+  <div class="ls-dots" id="lsDots"></div>
+  <div class="card lesson-card" id="lsCard">
+    <div id="lsStep">
+      <h3 id="lsH"></h3>
+      <div id="lsVis" class="ls-vis"></div>
+      <p id="lsP" class="ls-p"></p>
+      <button id="lsDemo" class="ghost small-btn" hidden>🔊 Listen</button>
+      <div id="lsTry" class="try" hidden>
+        <div class="try-label">Try it</div>
+        <div class="try-say" id="lsSay"></div>
+        <div class="try-status" id="lsStatus"></div>
+        <div class="muted small" id="lsHear"></div>
+        <div class="row center"><button id="lsMic" class="primary" hidden>🎤 Turn on listening</button><button id="lsGo" class="primary" hidden>▶ Start</button><button id="lsDone" class="primary" hidden>I did it ✓</button></div>
+      </div>
+      <div id="lsTip" class="tipline" hidden></div>
+    </div>
+    <div id="lsFinal" hidden>
+      <h3 id="lsFinalH">Ready to practise</h3>
+      <div class="staff-wrap" id="lessonVisual"></div>
+      <p id="lessonText" class="muted"></p>
+      <div class="mastery-line"><div class="bar"><div id="lessonBar"></div></div><span id="lessonPct"></span></div>
+      <div id="lessonChecklist" class="checklist"></div>
+      <p class="muted small" id="lessonRule"></p>
+      <div id="lsFinalTip" class="tipline"></div>
+      <button id="lsReview" class="link">↺ Go through the lesson again</button>
+    </div>
   </div>
-  <button id="btnStartDrill" class="big primary">Start drill</button>
+  <div class="row lnav" id="lsNav"><button id="lsBack" class="ghost">← Back</button><button id="lsNext" class="primary">Next →</button></div>
+  <button id="btnStartDrill" class="big primary" hidden>Start drill</button>
+</section>
+
+<!-- ============ ONBOARDING ============ -->
+<section id="onboard" class="screen">
+  <div class="start-card ob" id="ob1">
+    <div class="logo">🎹</div>
+    <h2>Learn piano on your own piano</h2>
+    <ul class="ob-list"><li><b>You play</b> your real piano or keyboard.</li><li><b>Your phone listens</b> and tells you right away if it was right.</li><li><b>Short lessons</b>, then practice that adapts to you.</li></ul>
+    <button class="big primary" id="obNext1">Next →</button>
+    <button class="link" id="obSkip">I’ve used Piano Path before, skip</button>
+  </div>
+  <div class="start-card ob" id="ob2" hidden>
+    <div class="logo">📱</div>
+    <h2>Put your phone near the piano</h2>
+    <ul class="ob-list"><li>On the music stand or lid, <b>30–60 cm</b> (1–2 ft) from the speakers.</li><li>Medium volume. Turn off reverb or other effects.</li><li>When asked, tap <b>Allow</b> for the microphone. Sound stays on your phone and is never uploaded.</li></ul>
+    <button class="big primary" id="obMic">🎤 Turn on listening</button>
+    <p id="obErr" class="error" hidden></p>
+  </div>
+  <div class="start-card ob" id="ob3" hidden>
+    <div class="logo">🔇</div>
+    <h2>Quick sound check</h2>
+    <p class="lead">First, 3 seconds of quiet so the app learns your room. Then play one note so it can hear your piano. It takes about 20 seconds.</p>
+    <button class="big primary" id="obCalib">Start sound check</button>
+  </div>
 </section>
 
 <!-- ============ DRILL ============ -->
@@ -174,6 +219,7 @@
 <script src="detector.js"></script>
 <script src="staff.js"></script>
 <script src="curriculum.js"></script>
+<script src="lessons.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

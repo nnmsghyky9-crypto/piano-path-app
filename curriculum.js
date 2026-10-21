@@ -226,10 +226,10 @@
   const C_SCALE_2OCT = (tonic) => scaleFrom(tonic, [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
 
   const NEW_UNITS = [
-    { id: 35, title: 'Practising effectively', level: 'Beginner', selfCheck: true,
-      lesson: '<b>Sit</b> centred on middle C, with your elbows a little in front of your body and your forearms level with the keys. <b>Practise</b> 10–20 minutes a day; little and often beats one long session. <b>Go slow</b>: play a passage slowly enough to get it right three times in a row, then speed up a little. <b>Isolate</b>: practise hands separately first, and only the hard bar. <b>Tip:</b> use a metronome, and record yourself once a week.',
-      checklist: ['Bench height: forearms level with the keys, sitting near the front edge', 'Fingers curved like holding a ball; wrists loose', 'A daily 10-minute slot set aside (e.g. after dinner)', 'Plan: warm-up (5-finger pattern), one new skill, one piece'],
-      visual: { clef: 'treble', notes: ['C4', 'D4', 'E4', 'F4', 'G4'], labels: ['1', '2', '3', '4', '5'] } },
+    { id: 35, title: 'Your first notes', level: 'Beginner', selfCheck: true, firstWin: true,
+      lesson: 'Set up your phone, find middle C, learn finger numbers and play your first tune. Every step is checked by the mic.',
+      checklist: [],
+      visual: { clef: 'treble', notes: ['C4', 'D4', 'E4'], labels: ['1', '2', '3'] } },
     { id: 11, title: 'Hand position & five-finger patterns', level: 'Beginner', targetMs: 9000,
       lesson: 'Fingers are numbered <b>1 = thumb</b> to <b>5 = pinky</b> in both hands. In <b>C position</b>, the right-hand thumb sits on middle C and each finger covers one white key: C D E F G. Keep the fingers curved, play on the fingertips, and don\'t let the knuckles collapse. Play the pattern up and back down evenly, one finger per key. <b>Tip:</b> the left hand is a mirror image, with the pinky on C below middle C.',
       visual: { clef: 'treble', notes: ['C4', 'D4', 'E4', 'F4', 'G4'], labels: ['1', '2', '3', '4', '5'] },

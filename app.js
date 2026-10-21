@@ -93,9 +93,9 @@
   const dyn = (v) => (v < 32 ? 'pp' : v < 56 ? 'p' : v < 76 ? 'mp' : v < 96 ? 'mf' : v < 112 ? 'f' : 'ff');
 
   // ---------------- synth (ear-training prompts + hidden debug keys) ----------------
-  function pianoTone(m, when, dur, toAnalyser) {
+  function pianoTone(m, when, dur, toAnalyser, vel = 1) {
     const f0 = D.midiToFreq(m), out = ctx.createGain(), t = when;
-    out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(0.16, t + 0.006); out.gain.exponentialRampToValueAtTime(0.04, t + dur * 0.7); out.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(0.16 * vel, t + 0.006); out.gain.exponentialRampToValueAtTime(0.04 * vel, t + dur * 0.7); out.gain.exponentialRampToValueAtTime(0.0005, t + dur);
     for (let h = 1; h <= 7; h++) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f0 * h * Math.sqrt(1 + 0.0004 * h * h); g.gain.value = Math.pow(h, -1.3); o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05); }
     out.connect(ctx.destination); if (toAnalyser) out.connect(analyser);
     return out;
@@ -234,7 +234,7 @@
         const isCur = open && !mastered && !currentMarked && !u.selfCheck;
         li.className = 'unit' + (mastered ? ' mastered' : '') + (!open ? ' locked' : '') + (isCur ? ' current' : '') + (u.selfCheck ? ' guide' : '');
         if (isCur) currentMarked = true;
-        const tag = u.selfCheck ? 'guide · self-check' : u.rhythm ? 'rhythm · mic' : u.ear ? 'ear · buttons' : 'mic-graded';
+        const tag = u.firstWin ? 'start here · 5 min · mic' : u.selfCheck ? 'guide + try-it steps' : u.rhythm ? 'rhythm · mic' : u.ear ? 'ear · buttons' : 'mic-graded';
         li.innerHTML = `<div class="num">${mastered ? '✓' : open ? (idx + 1) : '🔒'}</div><div class="grow"><div class="ttl">${u.title}</div><div class="lvl">${tag}${!open && prev ? ' · master “' + prev.title + '” to unlock' : ''}</div><div class="bar"><div style="width:${m}%"></div></div></div><div class="pct">${u.selfCheck ? (mastered ? 'done' : '') : m + '%'}</div>`;
         li.dataset.unit = u.id;
         if (open) li.onclick = () => openLesson(u.id);
@@ -249,25 +249,237 @@
 
   // ---------------- lesson ----------------
   let curUnit = 1;
-  function openLesson(id) {
-    curUnit = id; const u = C.UNITS.find((x) => x.id === id), v = u.visual;
+  // ---------------- lessons: step-by-step cards with mic-graded "try it" steps ----------------
+  const Ls = window.Lessons;
+  let LS = null;
+  const unitOf = (id) => C.UNITS.find((x) => x.id === id);
+  const micReady = () => (micOn && ctx && ctx.state === 'running') || midi.inputs.length > 0;
+  const tipOfDay = () => Ls.TIPS[Math.floor(Date.now() / 864e5) % Ls.TIPS.length];
+  function openLesson(id, at) {
+    curUnit = id; const u = unitOf(id), steps = Ls.steps(id), ud = Prog.unitData(id);
+    const i = at != null ? at : ud.lessonSeen && !u.firstWin ? steps.length : 0;
+    if (LS && LS.timer) clearTimeout(LS.timer);
+    LS = { id, u, steps, i, done: new Set(ud.lessonDone || []), tr: null };
     show('lesson');
     $('lessonLevel').textContent = `Unit ${C.ORDER.indexOf(u.id) + 1} · ${u.level}`; $('lessonTitle').textContent = u.title;
-    $('lessonVisual').innerHTML = renderSpec(v);
-    $('lessonText').innerHTML = u.lesson;
-    const m = Prog.mastery(id); $('lessonBar').style.width = m + '%'; $('lessonPct').textContent = u.selfCheck ? (m ? 'done ✓' : 'not done yet') : `${m}% mastery`;
-    const ud = Prog.unitData(id);
-    $('lessonChecklist').innerHTML = u.selfCheck ? `<div class="muted small">The mic can't grade this. Tick each item when you've done it:</div>` + u.checklist.map((c, i) => `<label class="chk"><input type="checkbox" data-i="${i}" ${(ud.checks || [])[i] ? 'checked' : ''}> ${c}</label>`).join('') : '';
-    $$('#lessonChecklist input').forEach((cb) => (cb.onchange = () => { ud.checks = ud.checks || []; ud.checks[+cb.dataset.i] = cb.checked; Prog.save(); }));
-    $('lessonRule').textContent = u.selfCheck ? 'Guidance units never block your path. Mark it practised when you can do every item.' : u.rhythm ? `Rhythm drills are graded on when each note starts, compared with the beat (a constant delay from the mic is cancelled out automatically). Reach ${Prog.PASS}% to master the unit. Tighter timing scores higher.` : `To master this unit, reach ${Prog.PASS}%. Mastery is based on your last 20 answers: accuracy on the first try, plus speed. Items you miss come back more often.`;
-    if (u.selfCheck) {
-      $('btnStartDrill').textContent = m ? '↺ Mark as not done' : '✓ I\'ve practised this';
-      $('btnStartDrill').onclick = () => { Prog.markDone(id, !m); openLesson(id); };
+    renderCard();
+  }
+  function renderCard() {
+    const { u, steps, i } = LS, N = steps.length, final = i >= N;
+    frameHandler = null; LS.tr = null; if (LS.timer) clearTimeout(LS.timer);
+    $('lsDots').innerHTML = steps.map((_, k) => `<i class="${k === i ? 'on' : LS.done.has(k) ? 'ok' : ''}"></i>`).join('') + `<i class="fin ${final ? 'on' : ''}">★</i>`;
+    $('lsStep').hidden = final; $('lsFinal').hidden = !final;
+    $('lsBack').disabled = i === 0;
+    if (final) return renderFinal();
+    const c = steps[i];
+    $('lsH').textContent = c.h; $('lsP').innerHTML = c.p || '';
+    let vis = '';
+    if (c.staff) vis += `<div class="staff-wrap">${renderSpec(c.staff)}</div>`;
+    if (c.beats) vis += Ls.beats(c.beats.r, c.beats);
+    if (c.chips) vis += `<div class="chips seq leadsheet">${c.chips.map((x) => `<span>${pretty(x)}</span>`).join('')}</div>`;
+    if (c.hand) vis += Ls.hand(c.hand.side, c.hand.on, c.hand.names);
+    if (c.kbd != null) vis += `<div id="lsKbd">${Ls.keyboard(c.kbd)}</div>`;
+    $('lsVis').innerHTML = vis;
+    $('lsDemo').hidden = !c.demo; $('lsDemo').onclick = () => playDemo(c.demo);
+    $('lsTip').hidden = !c.tip; $('lsTip').innerHTML = c.tip ? '💡 ' + c.tip : '';
+    const t = c.try;
+    $('lsTry').hidden = !t; ['lsMic', 'lsGo', 'lsDone'].forEach((b) => ($(b).hidden = true));
+    $('lsStatus').textContent = ''; $('lsStatus').className = 'try-status'; $('lsHear').textContent = '';
+    if (t) {
+      $('lsSay').textContent = t.say || '';
+      LS.tr = { ...t, step: 0, since: performance.now(), ok: LS.done.has(i), heard: [] };
+      if (LS.tr.ok) setStatus('✓ Done! Tap Next.', 'ok');
+      if (t.t === 'self') { $('lsDone').hidden = LS.tr.ok; $('lsDone').onclick = () => tryPass('✓ Great.'); }
+      else if (!micReady()) { $('lsMic').hidden = false; setStatus('The app needs to hear your piano for this step.'); }
+      else { if (micPaused) pauseMic(false); frameHandler = lessonFrame; if (t.t === 'rhythm') { $('lsGo').hidden = false; $('lsGo').textContent = '▶ Start'; } else if (!LS.tr.ok) setStatus('Listening… 👂'); }
+      if (t.t === 'seq') renderSeqStatus();
+    }
+    updateNext();
+  }
+  function updateNext() {
+    const c = LS.steps[LS.i], pending = c && c.try && !(LS.tr && LS.tr.ok);
+    $('lsNext').textContent = LS.i >= LS.steps.length - 1 ? 'Finish ★' : pending ? 'Skip →' : 'Next →';
+    $('lsNext').className = pending ? 'ghost' : 'primary';
+    $('lsNav').hidden = LS.i >= LS.steps.length;
+  }
+  $('lsNext').onclick = () => { if (!LS) return; LS.i++; renderCard(); };
+  $('lsBack').onclick = () => { if (!LS || LS.i === 0) return; LS.i--; renderCard(); };
+  $('lsReview').onclick = () => { LS.i = 0; renderCard(); };
+  $('lsMic').onclick = () => { const id = LS.id, i = LS.i; requireMic(() => openLesson(id, i)); };
+  $('lsGo').onclick = () => startTryRhythm();
+  function setStatus(msg, cls) { $('lsStatus').textContent = msg; $('lsStatus').className = 'try-status' + (cls ? ' ' + cls : ''); }
+  function flashKey(m, ok) { const el = $('lsKbd'); if (el) el.innerHTML = Ls.keyboard(LS.steps[LS.i].kbd, { heard: { midi: m, ok } }); }
+  function tryPass(msg) {
+    const t = LS.tr; if (!t || t.ok) return; t.ok = true; LS.done.add(LS.i);
+    const ud = Prog.unitData(LS.id); ud.lessonDone = [...LS.done]; Prog.save();
+    setStatus(msg + ' Tap Next.', 'ok'); $('lsDone').hidden = true; $('lsGo').hidden = true; updateNext(); renderDotsOnly();
+    testLog.push({ lesson: LS.id, step: LS.i, ok: true, heard: msg });
+  }
+  function tryFail(msg) { setStatus(msg, 'bad'); testLog.push({ lesson: LS.id, step: LS.i, ok: false, heard: msg }); }
+  function renderDotsOnly() { $$('#lsDots i').forEach((el, k) => k < LS.steps.length && el.classList.toggle('ok', LS.done.has(k))); }
+  const nm = (m) => pretty(D.midiName(m)), letter = (m) => pretty(D.PC_FLAT[((m % 12) + 12) % 12]);
+  function explain(m, tgt, exact) {
+    let d = m - tgt;
+    if (exact && d % 12 === 0) { const o = Math.abs(d / 12); return `You played ${nm(m)}: right letter, wrong octave. Go ${o > 1 ? o + ' octaves' : 'one octave'} ${d > 0 ? 'lower (to the left)' : 'higher (to the right)'}.`; }
+    if (!exact) d = ((d % 12) + 18) % 12 - 6;
+    const k = Math.abs(d), side = d > 0 ? 'right' : 'left', back = d > 0 ? 'left' : 'right';
+    const who = exact ? nm(m) : letter(m);
+    if (k > 7) return `You played ${who}. That’s too far ${side}. Look for the key further ${back}.`;
+    return `You played ${who}. That’s ${k === 1 ? 'one key' : k + ' keys'} to the ${side} of ${exact ? nm(tgt) : letter(tgt)}. Move ${k === 1 ? 'one key' : k + ' keys'} ${back}.`;
+  }
+  function renderSeqStatus() {
+    const t = LS.tr, names = [].concat(t.n);
+    $('lsHear').innerHTML = names.map((n, k) => `<span class="sq ${k < t.step ? 'done' : k === t.step ? 'cur' : ''}">${pretty(n.replace(/-?\d$/, ''))}</span>`).join(' ');
+  }
+  function lessonFrame(f) {
+    const t = LS && LS.tr; if (!t || t.ok || micPaused || LS.playing) return;
+    const now = f.now;
+    if (t.t !== 'seq') { const hs = heardSummary(f); if (hs.main !== '—') $('lsHear').textContent = 'I hear: ' + hs.main; }
+    if (t.t === 'any') { if (f.events.length) { flashKey(f.events[0], true); tryPass(`✓ I heard ${nm(f.events[0])}! Your mic works.`); } else if (f.onset && f.level > gate() * 2) tryPass('✓ I heard you! Your mic works.'); return; }
+    if (t.t === 'note') {
+      const tg = C.midiOf(t.n);
+      for (const m of f.events) {
+        const ok = t.exact ? m === tg : ((m - tg) % 12 + 12) % 12 === 0;
+        flashKey(m, ok);
+        if (ok) return tryPass(`✓ Yes! That’s ${t.exact ? nm(m) : letter(m)}.`);
+        tryFail(explain(m, tg, !!t.exact));
+      }
       return;
     }
-    $('btnStartDrill').textContent = u.ear ? 'Start ear training 🔊' : u.rhythm ? 'Start rhythm drill 🥁' : 'Start drill 🎤';
+    if (t.t === 'seq') {
+      const names = [].concat(t.n), seq = names.map(C.midiOf);
+      for (const m of f.events) {
+        if (m <= Math.min(...seq) - 12) continue;   // subharmonic glitch
+        const tg = seq[t.step], pc = (m % 12 + 12) % 12, ok = ((m - tg) % 12 + 12) % 12 === 0;
+        if (ok) { t.step++; flashKey(m, true); renderSeqStatus(); if (t.step >= seq.length) return tryPass('✓ All correct!'); setStatus(`✓ ${letter(m)}, now ${pretty(names[t.step].replace(/-?\d$/, ''))}`, 'ok'); continue; }
+        if (t.step > 0 && pc === (seq[t.step - 1] % 12 + 12) % 12) continue;
+        flashKey(m, false); tryFail(`Note ${t.step + 1}: ` + explain(m, tg, false) + ' Try that note again.');
+      }
+      return;
+    }
+    if (t.t === 'chord') {
+      const ms = t.n.map(C.midiOf), pcs = [...new Set(ms.map((m) => (m % 12 + 12) % 12))];
+      const target = { kind: 'chord', pcs, root: null }; if (t.bass) target.bass = D.PC_FLAT.indexOf(t.bass) >= 0 ? D.PC_FLAT.indexOf(t.bass) : (C.midiOf(t.bass + '3') % 12);
+      if (f.onset && (!t.att || now - t.att.since > 1800)) t.att = { since: now - TICK_MS };
+      if (!t.att) return;
+      const el = now - t.att.since; if (el < 300) return;
+      const res = D.gradeWindow(win, target, t.att.since, { ...strictOpts(), elapsedMs: el });
+      if (res.ok) return tryPass('✓ That’s it!');
+      if (el > 1700) {
+        t.att = null; if (!res.heardLabel) return;
+        let msg = `I heard ${pretty(res.heardLabel)}.`;
+        if (res.missing && res.missing.length) msg += ` Missing: ${res.missing.map((pc) => pretty(D.PC_FLAT[pc])).join(', ')}.`;
+        else if (target.bass != null) msg += ` Make ${pretty(D.PC_FLAT[target.bass])} your lowest note.`;
+        else msg += ' Some extra keys are sounding. Play only the highlighted keys.';
+        tryFail(msg);
+      }
+      return;
+    }
+    if (t.t === 'pulse') {
+      const ons = onsetLog.filter((o) => o.t > t.since).filter((o, k, a) => !k || o.t - a[k - 1].t > 150);
+      if (ons.length === t.lastN) return; t.lastN = ons.length;
+      if (ons.length < t.count) { if (ons.length) setStatus(`${ons.length} of ${t.count}…`); return; }
+      const w = ons.slice(-t.count), iv = w.slice(1).map((o, k) => o.t - w[k].t), mean = iv.reduce((a, b) => a + b, 0) / iv.length, dev = Math.max(...iv.map((x) => Math.abs(x - mean))) / mean;
+      if (dev < 0.22 && mean > 220 && mean < 1600) return tryPass(`✓ Nice and steady (${Math.round(60000 / mean)} beats per minute).`);
+      if (ons.length >= t.count + 2 || dev > 0.5) { t.since = now; t.lastN = 0; tryFail(mean <= 220 ? 'Too fast. Leave about half a second between notes.' : 'A bit uneven. Count “1 2 3 4” out loud and play on each number.'); }
+      return;
+    }
+    if (t.t === 'pf') {
+      const ons = onsetLog.filter((o) => o.t > t.since);
+      if (ons.length < 2 || now - ons[1].t < 400) return;
+      const r = peakAfter(ons[1].t) / Math.max(1e-6, peakAfter(ons[0].t)); t.since = now;
+      if (r >= 2) return tryPass(`✓ Great contrast! The loud one was ${(20 * Math.log10(r)).toFixed(0)} dB louder.`);
+      tryFail(r < 1 ? 'The second note was softer. Play the first one gently, the second one strongly.' : 'They sounded too similar. Make the soft one softer and the loud one louder.');
+      return;
+    }
+    if (t.t === 'hold') {
+      if (!t.h0) { if (f.onset) t.h0 = now; return; }
+      const held = now - t.h0, ago = levelLog.filter((l) => l.t <= now - 200 && l.t > now - 300).pop();
+      const damped = ago && held > 300 && f.level < ago.level * 0.25;       // a sudden drop = dampers came down (keys or pedal lifted)
+      if (damped && held < 2000) { t.h0 = null; return tryFail(`The sound stopped after ${(held / 1000).toFixed(1)} s. Keep the pedal pressed while you lift your hands.`); }
+      if (held > 2500 || (held > 1500 && f.level < gate() * 1.2)) return tryPass('✓ It kept ringing. That’s the pedal at work.');
+      setStatus(`Ringing… ${(held / 1000).toFixed(1)} s`);
+      return;
+    }
+    if (t.t === 'improv') {
+      for (const m of f.events) {
+        const pc = (m % 12 + 12) % 12, inside = t.scale.includes(pc); t.heard.push(inside);
+        flashKey(m, inside);
+        const n = t.heard.length, ins = t.heard.filter(Boolean).length;
+        if (!inside) tryFail(`${letter(m)} isn’t in this scale. Stick to the blue keys.`); else setStatus(`${n} notes${n >= t.count ? `, now end on ${pretty(D.PC_FLAT[t.root])}` : ''}`);
+        if (n >= t.count && pc === t.root && ins / n >= 0.8) return tryPass(`✓ You improvised ${n} notes!`);
+      }
+      return;
+    }
+    if (t.t === 'rhythm' && t.r0) {
+      if (now < t.r0) { setStatus(`Count-in… ${Math.min(t.beats, Math.floor((now - (t.r0 - t.beats * t.clickMs)) / t.clickMs) + 1)}`); return; }
+      if (now < t.end) { setStatus('Play! 🎵'); return; }
+      const els = D.parseRhythm(t.r), exp = D.rhythmOnsets(els).map((o) => ({ t: t.r0 + o.pos * t.msPerQ, pc: null }));
+      const det = onsetLog.filter((o) => o.t >= t.r0 - 400 && o.t <= t.end).map((o) => ({ t: o.t, pc: null }));
+      const res = D.gradeRhythm(exp, det, { tol: 150, maxComp: 180, tailMs: Math.min(t.msPerQ * 0.6, 400), allowExtra: 1 });
+      t.r0 = null; $('lsGo').hidden = false; $('lsGo').textContent = '▶ Try again';
+      if (res.ok) return tryPass(`✓ Right on the beat! (±${res.meanAbs} ms)`);
+      if (!det.length) return tryFail('I didn’t hear any notes. Start right after the 4th click.');
+      const firstMiss = res.misses.length ? res.misses[0] + 1 : null;
+      tryFail(`${res.hits.length} of ${exp.length} notes on time.` + (firstMiss ? ` Note ${firstMiss} was missing or off the beat.` : '') + (res.extras.length ? ' There were extra notes: stay silent on rests and hold long notes.' : ''));
+    }
+  }
+  function startTryRhythm() {
+    const t = LS.tr; if (!t) return; ensureContext(); ctx.resume();
+    const ts = t.ts || [4, 4], msPerQ = 60000 / t.bpm, clickMs = msPerQ, beats = ts[0], lead = 0.15, base = ctx.currentTime + lead;
+    for (let k = 0; k < beats; k++) clickAt(base + k * clickMs / 1000, k === 0);
+    const total = D.parseRhythm(t.r).reduce((a, e) => Math.max(a, e.pos + e.dur), 0);
+    Object.assign(t, { msPerQ, clickMs, beats, r0: performance.now() + lead * 1000 + beats * clickMs });
+    t.end = t.r0 + total * msPerQ + 450; $('lsGo').hidden = true;
+  }
+  function playDemo(d) {
+    ensureContext(); ctx.resume(); startLoop();
+    const t0 = ctx.currentTime + 0.1; let len = 1.5;
+    if (d.chord) { d.chord.map(C.midiOf).forEach((m) => pianoTone(m, t0, 1.8)); len = 1.9; }
+    else if (d.seq2) { d.seq2.forEach((ch, k) => ch.map(C.midiOf).forEach((m) => pianoTone(m, t0 + k * 1.4, 1.4))); len = d.seq2.length * 1.4 + 0.3; }
+    else if (d.r) {
+      const q = 60 / d.bpm * (d.unit || 1), els = D.parseRhythm(d.r), on = D.rhythmOnsets(els), beatsN = d.unit ? 6 : 4;
+      for (let k = 0; k < beatsN; k++) clickAt(t0 + k * q, k === 0);
+      const st = t0 + beatsN * q, qq = 60 / d.bpm, notes = (d.notes || []).map(C.midiOf);
+      on.forEach((o, k) => pianoTone(notes[k] || 72, st + o.pos * qq, Math.max(0.25, els[o.idx].dur * qq * 0.9)));
+      len = beatsN * q + els.reduce((a, e) => Math.max(a, e.pos + e.dur), 0) * qq + 0.5;
+    } else { const gap = d.gap || 0.55; d.n.map(C.midiOf).forEach((m, k) => pianoTone(m, t0 + k * gap, d.dur || 0.9, false, d.vel ? d.vel[k] : 1)); len = d.n.length * gap + 0.8; }
+    const wasPaused = micPaused; if (micStream) pauseMic(true); LS.playing = true; $('lsDemo').disabled = true;
+    clearTimeout(LS.timer); LS.timer = setTimeout(() => { LS.playing = false; $('lsDemo').disabled = false; if (micStream && !wasPaused) pauseMic(false); if (LS.tr) LS.tr.since = performance.now(); }, (len + 0.4) * 1000);
+  }
+  function renderFinal() {
+    const { u, id } = { u: LS.u, id: LS.id }, m = Prog.mastery(id), ud = Prog.unitData(id);
+    if (!ud.lessonSeen) { ud.lessonSeen = true; Prog.save(); }
+    $('lsNav').hidden = true; $('btnStartDrill').hidden = false;
+    $('lessonVisual').innerHTML = ''; $('lessonText').innerHTML = u.firstWin ? '' : `<details><summary>Lesson summary</summary>${u.lesson}</details>`;
+    $('lsFinalTip').textContent = '💡 ' + tipOfDay();
+    $('lessonBar').style.width = m + '%'; $('lessonPct').textContent = u.selfCheck ? (m ? 'done ✓' : 'not done yet') : `${m}% mastery`;
+    $('lessonChecklist').innerHTML = u.selfCheck && u.checklist.length ? `<div class="muted small">Tick each one when you can do it:</div>` + u.checklist.map((c, i) => `<label class="chk"><input type="checkbox" data-i="${i}" ${(ud.checks || [])[i] ? 'checked' : ''}> ${c}</label>`).join('') : '';
+    $$('#lessonChecklist input').forEach((cb) => (cb.onchange = () => { ud.checks = ud.checks || []; ud.checks[+cb.dataset.i] = cb.checked; Prog.save(); }));
+    const nextId = C.ORDER[C.ORDER.indexOf(id) + 1];
+    if (u.firstWin) {
+      const tries = LS.steps.filter((c) => c.try).length, got = LS.steps.filter((c, k) => c.try && LS.done.has(k)).length;
+      $('lsFinalH').textContent = got >= tries - 1 ? '🎉 You played your first tune!' : 'Almost there';
+      $('lessonRule').textContent = got >= tries - 1 ? 'You found middle C, learned finger numbers and played real notes. Next up: the five-finger position.' : `You’ve done ${got} of ${tries} try-it steps. Go back and try the ones you skipped. It’s quick!`;
+      if (got >= tries - 1 && !m) Prog.markDone(id, true);
+      $('btnStartDrill').textContent = 'Next lesson →'; $('btnStartDrill').onclick = () => openLesson(nextId, 0);
+      $('lessonBar').style.width = Prog.mastery(id) + '%'; $('lessonPct').textContent = Prog.mastery(id) ? 'done ✓' : `${got}/${tries} steps`;
+      return;
+    }
+    $('lsFinalH').textContent = u.selfCheck ? 'Check yourself' : 'Ready to practise';
+    $('lessonRule').textContent = u.selfCheck ? 'The mic can’t judge this one fully, so you decide. This unit never blocks your path.' : u.ear ? 'The phone plays sounds and you tap the answer.' : u.rhythm ? `Each round: tap Start, hear 4 clicks, then play. Notes must start on time. Reach ${Prog.PASS}% to unlock the next unit.` : `Practice rounds are about 10 quick questions. Get ${Prog.PASS}% to unlock the next unit. Missed questions come back more often.`;
+    if (u.selfCheck) { $('btnStartDrill').textContent = m ? '↺ Mark as not done' : '✓ I can do this'; $('btnStartDrill').onclick = () => { Prog.markDone(id, !m); openLesson(id); }; return; }
+    $('btnStartDrill').textContent = u.ear ? 'Start ear training 🔊' : u.rhythm ? 'Start rhythm practice 🥁' : 'Start practice 🎤';
     $('btnStartDrill').onclick = () => (u.ear ? (ensureContext(), ctx.resume(), startLoop(), startDrill(id)) : requireMic(() => startDrill(id)));
   }
+  // ---------------- onboarding ----------------
+  function startOnboarding() { show('onboard'); ['ob1', 'ob2', 'ob3'].forEach((x, k) => ($(x).hidden = k !== 0)); }
+  const obStep = (k) => ['ob1', 'ob2', 'ob3'].forEach((x, j) => ($(x).hidden = j !== k));
+  const obFinish = () => { localStorage.setItem('pt.onboarded', '1'); openLesson(C.ORDER[0], 0); };
+  $('obNext1').onclick = () => obStep(1);
+  $('obSkip').onclick = () => { localStorage.setItem('pt.onboarded', '1'); renderMap(); };
+  $('obMic').onclick = async () => { if (await startMic()) { if (S.calibrated) obFinish(); else obStep(2); } else { $('obErr').hidden = false; $('obErr').textContent = 'The microphone is blocked. In iPhone Settings → Safari → Microphone, choose Allow, then reload.'; } };
+  $('obCalib').onclick = () => startCalibration(obFinish);
   function renderChordRow(v) { // several chords side by side, each on its own short staff
     return `<div class="chord-row" style="display:flex">${v.notes.map((g, i) => `<div style="flex:1;min-width:0">${Staff.render({ clef: v.clef, notes: g, mode: 'chord', keySig: i === 0 ? v.keySig : undefined, labels: [v.labels[i]], width: 150 })}</div>`).join('')}</div>`;
   }
@@ -682,6 +894,7 @@
     b.onclick = () => { ensureContext(); ctx.resume(); startLoop(); micOn = true; S.calibrated = true; const n = pendingAfterMic || renderMap; pendingAfterMic = null; n(); };
     document.querySelector('.start-card').appendChild(b);
   }
-  bindSettings(); renderMap();
-  window.PT = { S, Prog, win, testLog, onsetLog, levelLog, startRhythm, get micStartPerf() { return micStartPerf; }, get Dr() { return Dr; }, get ctx() { return ctx; }, startMic, startDrill, openPractice, openLesson, renderStats, renderMap, startCalibration, gate };
+  bindSettings();
+  if (!localStorage.getItem('pt.onboarded') && !Object.keys(Prog.raw.units).length && !S.calibrated) startOnboarding(); else renderMap();
+  window.PT = { S, Prog, win, testLog, onsetLog, levelLog, startRhythm, get micStartPerf() { return micStartPerf; }, get Dr() { return Dr; }, get ctx() { return ctx; }, startMic, startDrill, openPractice, openLesson, renderStats, renderMap, startCalibration, gate, openLesson, get LS() { return LS; }, startOnboarding };
 })();
