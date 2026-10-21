@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#14161c">
+<title>Piano Path — learn piano with your mic</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎹</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- ============ CURRICULUM MAP (landing) ============ -->
+<section id="map" class="screen active">
+  <header class="apphead">
+    <div><h1>Piano Path</h1><div class="muted small" id="mapSub">Beginner → expert, one unit at a time</div></div>
+    <div class="headbtns"><span class="badge" id="dayStreak" title="Days in a row">🔥 0</span><button class="icon" data-open="settings" aria-label="Settings">⚙︎</button></div>
+  </header>
+  <div class="row quick">
+    <button id="btnFree" class="ghost">🎧 Free practice</button>
+    <button id="btnStats" class="ghost">📊 Stats</button>
+  </div>
+  <div class="pill-row"><div class="pill mic-pill"><span class="dot"></span><span class="mic-txt">Mic off. It starts when you open a drill</span></div><div class="pill midi-pill" hidden><span class="dot"></span><span class="midi-txt">MIDI</span></div></div>
+  <ol class="units" id="unitList"></ol>
+  <h3 class="soon-h">Coming soon: expert units</h3>
+  <ul class="units soon" id="soonList"></ul>
+</section>
+
+<!-- ============ START / PERMISSION ============ -->
+<section id="start" class="screen">
+  <div class="start-card">
+    <div class="logo">🎤</div>
+    <h2>Let the app hear your piano</h2>
+    <p class="lead">Drills are graded by listening through the microphone to your piano's speakers.</p>
+    <button id="btnStartMic" class="big primary">Tap to start listening</button>
+    <p id="startError" class="error" hidden></p>
+    <ul class="tips">
+      <li>Put the phone 30–60&nbsp;cm (1–2&nbsp;ft) from the piano's speakers.</li>
+      <li>Use a moderate volume and turn off heavy reverb or chorus effects.</li>
+      <li>Audio is analysed on this device and never uploaded.</li>
+    </ul>
+    <button id="btnStartMidi" class="link" hidden>Use a USB/Bluetooth MIDI keyboard instead</button>
+    <button class="link" data-back>← Back to map</button>
+  </div>
+</section>
+
+<!-- ============ CALIBRATION ============ -->
+<section id="calib" class="screen">
+  <div class="card">
+    <h2>Quick setup <span class="muted" id="calibStepLbl">1 / 3</span></h2>
+    <div id="calibBody"></div>
+    <div class="meter big-meter"><div class="meter-fill" id="calibMeter"></div><div class="meter-gate" id="calibGate"></div></div>
+    <div class="row"><button id="calibSkip" class="ghost">Skip</button><button id="calibNext" class="primary">Start</button></div>
+  </div>
+</section>
+
+<!-- ============ LESSON ============ -->
+<section id="lesson" class="screen">
+  <header class="subhead"><button class="icon" data-back aria-label="Back">←</button><div><div class="muted small" id="lessonLevel"></div><h2 id="lessonTitle"></h2></div></header>
+  <div class="card lesson-card">
+    <div class="staff-wrap" id="lessonVisual"></div>
+    <p id="lessonText"></p>
+    <div class="mastery-line"><div class="bar"><div id="lessonBar"></div></div><span id="lessonPct"></span></div>
+    <p class="muted small" id="lessonRule"></p>
+  </div>
+  <button id="btnStartDrill" class="big primary">Start drill</button>
+</section>
+
+<!-- ============ DRILL ============ -->
+<section id="drill" class="screen">
+  <header class="subhead">
+    <button class="icon" id="drillBack" aria-label="Back to map">←</button>
+    <div class="grow"><div class="muted small" id="drillUnit"></div><div class="bar thin"><div id="drillProg"></div></div></div>
+    <span class="badge" id="drillStreak">0 in a row</span>
+  </header>
+  <div class="topbar"><div class="pill mic-pill"><span class="dot"></span><span class="mic-txt">Mic</span></div><div class="meter small-meter"><div class="meter-fill lvl"></div><div class="meter-gate gt"></div></div><div class="pill midi-pill" hidden><span class="dot"></span><span class="midi-txt">MIDI</span></div></div>
+  <main class="prompt-card" id="drillCard">
+    <div class="prompt-label" id="dTitle"></div>
+    <div class="prompt" id="dBig"></div>
+    <div class="staff-wrap" id="dStaff"></div>
+    <div class="prompt-sub" id="dSub"></div>
+    <div class="chips seq" id="dSeq"></div>
+    <div class="choices" id="dChoices"></div>
+    <div class="status" id="dStatus"></div>
+    <div class="answer" id="dAnswer"></div>
+  </main>
+  <div class="kbd-wrap" aria-hidden="true"><svg id="dKbd" class="kbd"></svg></div>
+  <div class="hear-line"><span class="muted small">I hear:</span> <b id="dHear">—</b> <span class="muted small" id="dHearNotes"></span></div>
+  <div class="row actions"><button id="dReplay" class="ghost" hidden>🔊 Replay</button><button id="dHint" class="ghost">💡 Hint</button><button id="dSkip" class="ghost">Skip ⏭</button></div>
+  <div id="summary" class="summary" hidden></div>
+</section>
+
+<!-- ============ FREE PRACTICE ============ -->
+<section id="practice" class="screen">
+  <header class="subhead"><button class="icon" data-back aria-label="Back">←</button><h2 class="grow">Free practice</h2><button class="icon" data-open="settings" aria-label="Settings">⚙︎</button></header>
+  <div class="topbar"><div class="pill mic-pill"><span class="dot"></span><span class="mic-txt">Mic</span></div><div class="meter small-meter"><div class="meter-fill lvl"></div><div class="meter-gate gt"></div></div><div class="pill midi-pill" hidden><span class="dot"></span><span class="midi-txt">MIDI</span></div></div>
+  <nav class="modes">
+    <button data-mode="listen" class="mode active">Listen</button>
+    <button data-mode="notes" class="mode">Quiz notes</button>
+    <button data-mode="chords" class="mode">Quiz chords</button>
+  </nav>
+  <main class="prompt-card" id="promptCard" hidden>
+    <div class="prompt-label" id="promptLabel">Play this note</div>
+    <div class="prompt" id="prompt">–</div>
+    <div class="prompt-sub" id="promptSub"></div>
+    <div class="status" id="status">Listening…</div>
+  </main>
+  <section class="hear">
+    <div class="hear-title">What I hear</div>
+    <div class="hear-main" id="hearMain">—</div>
+    <div class="hear-notes" id="hearNotes"></div>
+    <div class="staff-wrap" id="hearStaff"></div>
+    <div class="tuner" id="tuner"><div class="tuner-needle" id="tunerNeedle"></div></div>
+  </section>
+  <div class="kbd-wrap" aria-hidden="true"><svg id="kbd" class="kbd"></svg></div>
+  <div class="legend"><span class="sw target"></span>answer <span class="sw heard"></span>heard</div>
+  <div class="row actions" id="quizActions" hidden><button id="btnHint" class="ghost">💡 Hint</button><button id="btnSkip" class="ghost">Skip ⏭</button></div>
+  <div class="score" id="score"></div>
+  <div id="debugPanel" hidden>
+    <h3>Debug input (hidden; ?debug=1)</h3>
+    <p class="muted">Computer keys play a synthetic piano tone <em>into the detector</em> (A W S E D F T G Y H U J K = C4…C5; Z/X octave).</p>
+    <div id="debugInfo" class="mono"></div>
+  </div>
+</section>
+
+<!-- ============ STATS ============ -->
+<section id="stats" class="screen">
+  <header class="subhead"><button class="icon" data-back aria-label="Back">←</button><h2 class="grow">Your progress</h2></header>
+  <div class="stat-cards" id="statCards"></div>
+  <div class="card" id="statUnits"></div>
+  <button id="btnReset" class="ghost danger">Reset all progress</button>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<dialog id="settings">
+  <form method="dialog" class="settings">
+    <h2>Settings</h2>
+    <fieldset>
+      <legend>Microphone</legend>
+      <label>Sensitivity (noise gate) <span id="sensVal"></span><input type="range" id="sens" min="1" max="10" step="1"></label>
+      <p class="muted small">Lower it if room noise or talking shows up as notes. Raise it if soft playing isn't picked up. The white marker on the level meter is the gate.</p>
+      <label>Chord strictness <span id="strictVal"></span><input type="range" id="strict" min="1" max="5" step="1"></label>
+      <p class="muted small">Higher means extra wrong notes are rejected more readily.</p>
+      <div class="row"><span>Tuning: <b id="tuningVal">A4 = 440.0 Hz</b></span><button type="button" id="btnRecal" class="ghost">Re-run setup</button></div>
+    </fieldset>
+    <fieldset>
+      <legend>Free-practice quiz</legend>
+      <label class="chk"><input type="checkbox" id="optAcc"> Include sharps/flats</label>
+      <label class="chk"><input type="checkbox" id="optOct"> Exact octave required</label>
+      <div class="chips" id="chordTypes"></div>
+    </fieldset>
+    <fieldset>
+      <legend>MIDI keyboard (optional)</legend>
+      <div id="midiStatus" class="muted">Not connected.</div>
+      <button type="button" id="btnMidiConnect" class="ghost">Connect keyboard</button>
+      <label>Ignore notes softer than velocity <span id="velVal"></span><input type="range" id="velMin" min="1" max="40" step="1"></label>
+    </fieldset>
+    <details>
+      <summary>Help: microphone &amp; keyboard connection</summary>
+      <div class="help">
+        <p><b>Microphone (works on iPhone):</b> the page has to be opened over <b>https://</b>. If you blocked the mic, go to iOS <i>Settings → Safari → Microphone</i>, or tap <b>ᴀA</b> in the address bar and choose Website Settings. Allow it, then reload. Keep the phone near the piano's speakers and don't cover the mic with your hand.</p>
+        <p><b>MIDI over USB or Bluetooth:</b> Web MIDI works in <b>Chrome or Edge</b> on desktop and in <b>Chrome on Android</b>. Plug the keyboard's USB-to-Host port into the computer; Android needs a USB-OTG adapter. Then tap <i>Connect keyboard</i>. A keyboard you plug in later is found automatically.</p>
+        <p><b>iPhone / iPad:</b> Safari, and every other iOS browser, does <b>not</b> support Web MIDI, so on iOS use the microphone.</p>
+      </div>
+    </details>
+    <div class="row"><button class="primary" value="close">Done</button></div>
+  </form>
+</dialog>
+
+<script src="detector.js"></script>
+<script src="staff.js"></script>
+<script src="curriculum.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
