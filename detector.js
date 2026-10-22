@@ -342,14 +342,19 @@
       detected.forEach((d, j) => { if (used.has(j)) return; const x = d.t - e.t - offset; if (Math.abs(x) <= tol && Math.abs(x) < Math.abs(bx)) { bx = x; bj = j; } });
       if (bj < 0) { misses.push(i); return; }
       used.add(bj);
-      const d = detected[bj];   // e.pc array = any of these (two hands); e.chord = most of the chord's notes must sound
-      const pcOk = e.pc == null || (e.chord && d.pcs ? e.pc.filter((x) => d.pcs.includes(x)).length >= Math.ceil(e.pc.length * 0.6) : Array.isArray(e.pc) ? e.pc.includes(d.pc) : d.pc === e.pc);
+      // two hands: a held low note from the previous beat can drown out the new note, so also accept the new note when it sounds clearly
+      const ringing = (i, d) => { const pv = expected[i - 1]; return !!(d.pcs && pv && [].concat(pv.pc).includes(d.pc) && e.pc.some((x) => d.pcs.includes(x))); };
+      const d = detected[bj];   // e.pc array = any of these (two hands); e.chord = every chord tone must sound (a missing 5th is forgiven)
+      const pcOk = e.pc == null || (e.chord && d.pcs ? e.pc.every((x) => d.pcs.includes(x) || (x === (e.pc[0] + 7) % 12 && e.pc.length >= 3)) : Array.isArray(e.pc) ? e.pc.includes(d.pc) || ringing(i, d) || (e.pc.length > 1 && !!d.pcs && e.pc.every((x) => d.pcs.includes(x))) : d.pc === e.pc);
       hits.push({ i, err: Math.round(bx), pcOk, pc: detected[bj].pc });
       if (!pcOk) misses.push(i);
     });
     const lo = expected[0].t + offset - tol, hi = expected[expected.length - 1].t + offset + (opts.tailMs ?? tol);
     const extras = detected.filter((d, j) => !used.has(j) && d.t >= lo && d.t <= hi);
-    const ok = misses.length === 0 && extras.length <= (opts.allowExtra ?? 0);
+    // opts.ringOk: an extra onset that only re-sounds a note already expected just before it (e.g. a held left-hand note re-triggering) isn't counted
+    const prevPcs = (t) => { let b = null; for (const e of expected) if (e.t + offset <= t + 30 && (!b || e.t > b.t)) b = e; return b && b.pc != null ? [].concat(b.pc) : []; };
+    const counted = opts.ringOk ? extras.filter((d) => { const pv = prevPcs(d.t); return d.pc == null || !(pv.includes(d.pc) || (d.pcs && d.pcs.length && d.pcs.every((x) => pv.includes(x)))); }) : extras;
+    const ok = misses.length === 0 && counted.length <= (opts.allowExtra ?? 0);
     const meanAbs = hits.length ? Math.round(hits.reduce((s, h) => s + Math.abs(h.err), 0) / hits.length) : null;
     return { ok, hits, misses, extras, offset: Math.round(offset), meanAbs };
   }

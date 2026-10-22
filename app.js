@@ -619,7 +619,8 @@
     const g = Dr.it.grade, r = Dr.rh; r.graded = true;
     const detected = onsetLog.filter((o) => o.t >= r.t0 - 400 && o.t <= r.end).map((o) => ({ t: o.t, pc: g.pitched ? pcAround(o.t) : null, pcs: g.pitched ? pcsAround(o.t) : null }));
     const expected = g.onsets.map((o) => ({ t: r.t0 + o.pos * r.msPerQ, pc: o.pc, chord: o.chord }));
-    const res = D.gradeRhythm(expected, detected, { tol: g.tol, maxComp: 180, tailMs: Math.min(r.msPerQ * 0.6, 400), allowExtra: g.pitched ? 1 : 0 });
+    const res = D.gradeRhythm(expected, detected, { tol: g.tol, maxComp: 180, tailMs: Math.min(r.msPerQ * 0.6, 400), allowExtra: g.onsets.some((o) => o.chord) ? 1e9 : g.onsets.some((o) => Array.isArray(o.pc)) ? 2 : g.pitched ? 1 : 0, ringOk: g.onsets.some((o) => Array.isArray(o.pc)) });
+    if (window.PT_DEBUG) window._lastRh = { expected, detected, res };
     const colors = {}; const idxOf = (i) => D.rhythmOnsets(g.els)[i].idx;
     res.hits.forEach((h) => (colors[idxOf(h.i)] = h.pcOk ? '#3ecf8e' : '#ff6b6b')); res.misses.forEach((i) => (colors[idxOf(i)] = '#ff6b6b'));
     $('dStaff').innerHTML = renderSpec(Dr.it.staff, { colors }); $$('#dBeats i').forEach((el) => el.classList.remove('on'));
