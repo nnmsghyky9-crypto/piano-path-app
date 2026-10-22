@@ -342,7 +342,8 @@
       detected.forEach((d, j) => { if (used.has(j)) return; const x = d.t - e.t - offset; if (Math.abs(x) <= tol && Math.abs(x) < Math.abs(bx)) { bx = x; bj = j; } });
       if (bj < 0) { misses.push(i); return; }
       used.add(bj);
-      const pcOk = e.pc == null || detected[bj].pc === e.pc;
+      const d = detected[bj];   // e.pc array = any of these (two hands); e.chord = most of the chord's notes must sound
+      const pcOk = e.pc == null || (e.chord && d.pcs ? e.pc.filter((x) => d.pcs.includes(x)).length >= Math.ceil(e.pc.length * 0.6) : Array.isArray(e.pc) ? e.pc.includes(d.pc) : d.pc === e.pc);
       hits.push({ i, err: Math.round(bx), pcOk, pc: detected[bj].pc });
       if (!pcOk) misses.push(i);
     });

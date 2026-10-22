@@ -514,8 +514,98 @@
       visual: { grand: true, notes: [{ name: 'E5' }, { name: 'D5' }, { name: 'C5' }, { name: 'C3' }], labels: null } },
   ];
   NEW_UNITS.forEach((u) => UNITS.push(u));
+  // =====================================================================================
+  // v4 additions: technique with tempo goals, hand independence, pop chord charts, ear II
+  // =====================================================================================
+  /** a pitched rhythm item where each onset may accept several pitch classes (two hands / chords) */
+  function pitchedItem(spec, names, { bpm, tol, title, sub, keySig, clef = 'treble', ramp, big, timeSig = [4, 4], answer }) {
+    const els = D.parseRhythm(spec), ons = D.rhythmOnsets(els);
+    if (ons.length !== names.length) throw new Error(`pitchedItem: ${ons.length} onsets vs ${names.length} names in ${spec}`);
+    const ka = keySig ? new Set(scaleNames(keySig).map(noOct).filter((n) => /[#b]/.test(n))) : new Set();
+    ons.forEach((o, k) => { const nn = [].concat(names[k]); const e = els[o.idx]; e.names = nn; e.name = nn.filter((x) => midiOf(x) >= 55).sort((a, b) => midiOf(b) - midiOf(a))[0] || nn[0]; e.hideAcc = ka.has(noOct(e.name)); });
+    els.forEach((e, i) => { if (i > 0 && els[i - 1].tie && !e.rest) { e.name = els[i - 1].name; e.hideAcc = els[i - 1].hideAcc; } });
+    const total = els[els.length - 1].pos + els[els.length - 1].dur, flat = [...new Set(names.flat())];
+    return { title, big: big || '', sub: sub || `${timeSig[0]}/${timeSig[1]} · count-in, then play`,
+      staff: { measure: true, els, timeSig, clef: clef, keySig: keySig ? KEYSIG[keySig] : undefined },
+      grade: { type: 'rhythm', els, onsets: ons.map((o, k) => { const pcs = [...new Set([].concat(names[k]).map(pcOf))]; return { pos: o.pos, pc: pcs, chord: pcs.length >= 3 || undefined }; }), timeSig, bpm, tol, total, clickUnit: timeSig[1] === 8 ? 0.5 : 1, pitched: true, ramp },
+      show: flat.map(midiOf), answer: answer || names.map((n) => [].concat(n).map(pn).join('+')).join(' '), targetMs: 1e9 };
+  }
+  const V4_UNITS = [
+    { id: 48, title: 'Technique: scales & arpeggios with a tempo goal', level: 'Intermediate', targetMs: 1e9, rhythm: true, ramp: true,
+      lesson: 'Every major scale and arpeggio, in steady eighth notes after a count-in. Each time you play one cleanly <b>first try</b>, its tempo goes up 8 beats per minute, until you reach the goal (120 for scales, 100 for arpeggios). Fingering for most scales: RH <b>1 2 3, thumb under, 1 2 3 4 5</b>; LH the mirror image. <b>Tip:</b> use the ⏱ Metronome tool to practise between rounds.',
+      visual: { measure: true, rhythm: 'e e e e e e e e', timeSig: [4, 4], clef: 'treble', names: ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'] },
+      pool: ['sc:C', 'sc:G', 'sc:F', 'ar:C', 'sc:D', 'sc:Bb', 'ar:G', 'sc:A', 'sc:Eb', 'ar:F', 'sc:E', 'sc:Ab', 'ar:D', 'sc:B', 'sc:Db', 'sc:F#', 'ar:A', 'ar:Bb', 'ar:E', 'ar:Eb'],
+      item(key) {
+        const [kind, t] = key.split(':');
+        if (kind === 'sc') {
+          const up = scaleNames(t), names = up.concat(up.slice(0, -1).reverse());
+          return pitchedItem('e e e e e e e e | e e e e e e q', names, { bpm: 60, tol: 110, title: `${pretty(t)} major scale, up and down`, sub: 'eighth notes · 1 octave · fingers 1 2 3, thumb under', keySig: t, ramp: { start: 60, step: 8, goal: 120 } });
+        }
+        const oct = ['C', 'Db', 'D', 'Eb', 'E'].includes(t) ? 4 : 3, tri = chordNames(t + oct, 'maj'), up8 = (n) => { const p = parseName(n); return p.base + (p.oct + 1); };
+        const top = up8(up8(tri[0])), up = [...tri, ...tri.map(up8), top], names = up.concat(up.slice(0, -1).reverse()).slice(0, 13);
+        return pitchedItem('e e e e e e e e | e e e e h', names, { bpm: 60, tol: 110, title: `${pretty(t)} major arpeggio, 2 octaves`, sub: 'eighth notes · up and back down', keySig: t, ramp: { start: 60, step: 8, goal: 100 } });
+      } },
+    { id: 50, title: 'Hand independence', level: 'Intermediate', targetMs: 1e9, rhythm: true,
+      lesson: 'Your hands learn to do different things at the same time. Start with the hands <b>taking turns</b> (left on beats 1 and 3, right on 2 and 4), then one hand <b>holds</b> while the other moves, then left-hand quarters under right-hand notes on the “and”. Practise each hand alone, then together slowly. The app listens for every note in time; notes that sound together count as one beat.',
+      visual: { measure: true, rhythm: 'q q q q', timeSig: [4, 4], clef: 'treble', names: ['C4', 'G4', 'C4', 'G4'] },
+      pool: ['alt:C', 'hold:C', 'alt:G', 'half:G', 'mel:C', 'off:C', 'waltz:F', 'off:G'],
+      item(key) {
+        const P = {
+          'alt:C': ['q q q q | q q q q', ['C3', 'G4', 'C3', 'G4', 'C3', 'E4', 'C3', 'G4'], 'Take turns: LH on 1 and 3, RH on 2 and 4'],
+          'alt:G': ['q q q q | q q q q', ['G2', 'D5', 'G2', 'B4', 'G2', 'D5', 'G2', 'G4'], 'Take turns: LH on 1 and 3, RH on 2 and 4'],
+          'hold:C': ['q q q q | q q q q', [['C4', 'C3'], 'D4', 'E4', 'F4', ['G4', 'C3'], 'F4', 'E4', 'D4'], 'LH holds C (whole notes), RH walks up and down'],
+          'half:G': ['q q q q | q q q q', [['G4', 'G2'], 'A4', ['B4', 'D3'], 'C5', ['D5', 'G2'], 'C5', ['B4', 'D3'], 'A4'], 'LH half notes G and D, RH quarters'],
+          'mel:C': ['q q q q | q q h', [['E4', 'C3'], 'D4', ['C4', 'G2'], 'D4', ['E4', 'C3'], 'E4', ['E4', 'G2']], 'RH melody, LH bass on beats 1 and 3'],
+          'off:C': ['e e e e e e e e', ['C3', 'E4', 'G2', 'F4', 'C3', 'E4', 'G2', 'D4'], 'LH on the beat, RH on the “and”'],
+          'off:G': ['e e e e e e e e', ['G2', 'B4', 'D3', 'C5', 'G2', 'B4', 'D3', 'A4'], 'LH on the beat, RH on the “and”'],
+          'waltz:F': ['q q q | q q q', ['F2', ['F4', 'A4'], ['F4', 'A4'], 'C3', ['E4', 'G4'], ['E4', 'G4']], 'Waltz: LH bass on 1, RH notes on 2 and 3'],
+        }[key];
+        const ts = key.startsWith('waltz') ? [3, 4] : [4, 4];
+        const it = pitchedItem(P[0], P[1], { bpm: 72, tol: 140, title: P[2], sub: `${ts[0]}/${ts[1]} · ♩ = 72 · notes on the low staff = left hand`, timeSig: ts, keySig: key.endsWith(':G') ? 'G' : key.endsWith(':F') ? 'F' : undefined });
+        const split = (hi) => it.staff.els.map((e) => { if (e.rest || !e.names) return { ...e }; const nn = e.names.filter((n) => (midiOf(n) >= 60) === hi); return nn.length ? { ...e, name: nn[0], names: nn } : { ...e, rest: true, name: undefined, names: undefined }; });
+        const lh = split(false), merged = [], SYM = { 1: ['q', false], 2: ['h', false], 3: ['h', true], 4: ['w', false] };   // a held LH note is written as one long note
+        for (let k = 0; k < lh.length; k++) {
+          const e = lh[k]; if (e.rest) { merged.push(e); continue; }
+          let d = e.dur, j = k + 1; while (j < lh.length && lh[j].rest && lh[j].bar === e.bar && SYM[d + lh[j].dur]) { d += lh[j].dur; j++; }
+          if (d !== e.dur && SYM[d]) { merged.push({ ...e, dur: d, sym: SYM[d][0], dot: SYM[d][1] }); k = j - 1; } else merged.push(e);
+        }
+        it.staff = { measure: true, els: split(true), lhEls: merged, timeSig: ts, clef: 'treble', keySig: it.staff.keySig };
+        return it;
+      } },
+    { id: 49, title: 'Pop chord charts & rhythm patterns', level: 'Advanced', targetMs: 1e9, rhythm: true,
+      lesson: 'Most pop songs are played from a <b>chord chart</b>: just the chord names, one per bar, plus a rhythm pattern that you choose. Left hand plays the <b>root</b>, right hand the <b>triad</b>. Common patterns: whole notes (ballad), half notes, steady quarters (driving), and <b>3-3-2</b> (“1 . . 4 . . 7 .”), the most common pop groove. The app checks each chord lands on time and is the right chord.',
+      visual: { measure: true, rhythm: 'q. q. q', timeSig: [4, 4], clef: 'perc' },
+      pool: ['C G Am F:w', 'C G Am F:h h', 'Am F C G:h h', 'C Am F G:q q q q', 'G D Em C:h h', 'C G Am F:q. q. q', 'F C Dm Bb:q q q q', 'Am F C G:q. q. q', 'D A Bm G:q. q. q', 'C F G C:q. e~ h'],
+      item(key) {
+        const [chart, pat] = key.split(':'), syms = chart.split(' ');
+        const spec = syms.map(() => pat).join(' | '), per = D.rhythmOnsets(D.parseRhythm(pat)).length;
+        const names = []; syms.forEach((s) => { const c = parseSym(s), tri = placeChord(c.root, c.type), r = parseName(tri[0]); for (let k = 0; k < per; k++) names.push([r.base + 3, ...tri]); });
+        const PN = { w: 'whole notes', 'h h': 'half notes', 'q q q q': 'steady quarters', 'q. q. q': '3-3-2 groove', 'q. e~ h': 'push on the “and” of 2' };
+        const it = pitchedItem(spec, names, { bpm: 76, tol: 140, title: `Chord chart · ${PN[pat]}`, big: syms.map(pretty).join(' · '), sub: `one chord per bar · LH root + RH triad · ${PN[pat]}`, answer: syms.map((s) => `${pretty(s)} = ${chordNames(parseSym(s).root + 4, parseSym(s).type).map(pn).join(' ')}`).join(' · ') });
+        it.staff = { measure: true, els: it.staff.els.map((e) => ({ ...e, name: undefined })), timeSig: [4, 4], clef: 'perc' };
+        it.leadsheet = true; return it;
+      } },
+    { id: 51, title: 'Ear II: seventh chords & progressions', level: 'Advanced', targetMs: 6000, ear: true,
+      lesson: 'The phone plays a chord or a short progression and you tap what you heard. Seventh chords: <b>major 7</b> sounds soft and dreamy, <b>dominant 7</b> bluesy and restless, <b>minor 7</b> mellow, <b>half-diminished</b> dark and unsettled. Progressions: listen for the bass line and for which chord sounds like “home” (I).',
+      visual: { clef: 'treble', notes: [['C4', 'E4', 'G4', 'B4'], ['C4', 'E4', 'G4', 'Bb4'], ['C4', 'Eb4', 'G4', 'Bb4']], labels: ['maj7', '7', 'm7'] },
+      pool: ['q:maj7', 'q:dom7', 'p:I-IV-V-I', 'q:min7', 'p:I-V-vi-IV', 'q:m7b5', 'p:ii-V-I', 'p:I-vi-IV-V', 'q:dim7', 'p:I-IV-I-V'],
+      item(key, rnd = Math.random) {
+        const [kind, v] = key.split(':');
+        const tonic = ['C', 'D', 'F', 'G', 'A'][Math.floor(rnd() * 5)];
+        if (kind === 'q') {
+          const ms = placeChord(tonic, v).map(midiOf), QO = [['maj7', 'Major 7'], ['dom7', 'Dominant 7'], ['min7', 'Minor 7'], ['m7b5', 'Half-dim (m7♭5)'], ['dim7', 'Diminished 7']];
+          return { title: 'What kind of seventh chord?', big: '🔊', sub: 'played together, then broken', ear: true,
+            grade: { type: 'choice', options: QO, answer: v, play: { chords: [ms, ...ms.map((m) => [m])], gap: [1.6, 0.45, 0.45, 0.45] } }, show: ms, answer: QO.find((o) => o[0] === v)[1] };
+        }
+        const DEG = { I: 0, ii: 1, iii: 2, IV: 3, V: 4, vi: 5 }, PO = ['I-IV-V-I', 'I-V-vi-IV', 'ii-V-I', 'I-vi-IV-V', 'I-IV-I-V'];
+        const chords = v.split('-').map((n) => { const [s, d] = MAJOR_STEPS[DEG[n]], r = noOct(transpose(tonic + '4', s, d)), names = placeChord(r, n === n.toUpperCase() ? 'maj' : 'min'), b = parseName(names[0]); return [midiOf(b.base + 3), ...names.map(midiOf)]; });
+        return { title: 'Which progression?', big: '🔊', sub: 'four chords (three for ii–V–I). The first chord is not always I.', ear: true,
+          grade: { type: 'choice', options: PO.map((p) => [p, p.replace(/-/g, '–')]), answer: v, play: { chords, gap: 1.1 } }, show: chords.flat(), answer: v.replace(/-/g, '–') };
+      } },
+  ];
+  V4_UNITS.forEach((u) => UNITS.push(u));
   const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-  const ORDER = [35, 37, 1, 11, 43, 12, 38, 39, 2, 40, 3, 41, 13, 42, 14, 15, 46, 4, 16, 44, 45, 5, 6, 7, 17, 18, 47, 9, 22, 19, 20, 21, 23, 8, 24, 25, 26, 27, 10, 28, 29, 30, 31, 32, 33, 34, 36];
+  const ORDER = [35, 37, 1, 11, 43, 12, 38, 39, 2, 40, 3, 41, 13, 42, 14, 15, 46, 4, 16, 44, 45, 5, 6, 7, 17, 18, 48, 47, 9, 22, 19, 20, 50, 21, 23, 8, 24, 25, 26, 49, 27, 10, 51, 28, 29, 30, 31, 32, 33, 34, 36];
   const LEVEL_OF = { 1: 'Beginner', 2: 'Beginner', 3: 'Beginner', 4: 'Intermediate', 5: 'Intermediate', 6: 'Intermediate', 7: 'Intermediate', 9: 'Intermediate', 8: 'Advanced', 10: 'Advanced' };
   UNITS.forEach((u) => { if (LEVEL_OF[u.id]) u.level = LEVEL_OF[u.id]; });
   UNITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
@@ -546,12 +636,13 @@
       const i = ORDER.indexOf(id); if (i <= 0) return true;
       const u = unitData(id);
       if (u.hist.length || u.selfDone) return true;
+      if (data.placedUpTo != null && i <= data.placedUpTo) return true;          // placement test: skipped ahead to here
       // already past this point (e.g. progress from before new units were inserted): don't lock it
       for (let k = i + 1; k < ORDER.length; k++) { const v = data.units[ORDER[k]]; if (v && (v.hist.length || v.selfDone)) return true; }
       let j = i - 1; while (j > 0 && unitDef(ORDER[j]).selfCheck) j--;      // guidance units never block
       const prev = ORDER[j];
       if (unitDef(id).selfCheck) return unlocked(prev, false);
-      return unitDef(prev).selfCheck ? unlocked(prev, false) : mastery(prev) >= PASS;
+      return unitDef(prev).selfCheck ? unlocked(prev, false) : mastery(prev) >= PASS || ORDER.indexOf(prev) < placedUpTo();   // a drill skipped by placement counts as passed
     }
     function markDone(id, done = true) { unitData(id).selfDone = done; const d = today(); if (!data.days.includes(d)) data.days.push(d); save(); }
     const itemBox = (id, key) => ((unitData(id).items[key] || {}).box || 0);
@@ -595,7 +686,12 @@
       const seen = Object.values(u.items).reduce((s, it) => s + it.seen, 0);
       return { mastery: mastery(id), attempts: seen, acc: h.length ? Math.round(100 * oks.length / h.length) : null, medianMs: med, weak, sessions: u.sessions };
     }
-    return { data, mastery, unlocked, markDone, itemBox, record, pick, dayStreak, stats, unitData, save, reset() { storage.removeItem(KEY); load(); Object.assign(this, { data }); }, get raw() { return data; }, PASS };
+    // tempo ramp (technique units): level n = start + n * step bpm, raised after a clean first-try pass
+    const tempoLevel = (id, key) => ((unitData(id).items[key] || {}).tl || 0);
+    function bumpTempo(id, key) { const it = (unitData(id).items[key] = unitData(id).items[key] || { box: 0, seen: 0, miss: 0 }); it.tl = (it.tl || 0) + 1; save(); }
+    function place(idx) { data.placedUpTo = Math.max(0, Math.min(ORDER.length - 1, idx)); data.placedAt = today(); save(); }
+    const placedUpTo = () => (data.placedUpTo != null ? data.placedUpTo : -1);
+    return { data, mastery, unlocked, markDone, itemBox, record, tempoLevel, bumpTempo, place, placedUpTo, today, pick, dayStreak, stats, unitData, save, reset() { storage.removeItem(KEY); load(); Object.assign(this, { data }); }, get raw() { return data; }, PASS };
   }
 
   const api = { UNITS, COMING, LEVELS, ORDER, Progress, parseSym, symTarget, seeded, MODES, modeScale, pretty, parseName, transpose, chordNames, scaleNames, placeChord, INTERVALS, KEYSIG, midiOf, pcOf };

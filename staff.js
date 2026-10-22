@@ -93,7 +93,12 @@
     const wts = els.map((e) => Math.pow(e.dur, 0.6));
     const sumW = wts.reduce((a, b) => a + b, 0) || 1, unit = (x1 - x0) / sumW;
     const xs = []; let acc = 0; els.forEach((e, i) => { xs.push(x0 + 8 + acc * unit); acc += wts[i]; });
-    const X = (pos) => { const i = els.findIndex((e) => Math.abs(e.pos - pos) < 1e-6); if (i >= 0) return xs[i]; let a = 0; for (let k = 0; k < els.length; k++) { if (els[k].pos + els[k].dur > pos) return x0 + 8 + (a + wts[k] * (pos - els[k].pos) / els[k].dur) * unit; a += wts[k]; } return x1; };
+    let X = (pos) => { const i = els.findIndex((e) => Math.abs(e.pos - pos) < 1e-6); if (i >= 0) return xs[i]; let a = 0; for (let k = 0; k < els.length; k++) { if (els[k].pos + els[k].dur > pos) return x0 + 8 + (a + wts[k] * (pos - els[k].pos) / els[k].dur) * unit; a += wts[k]; } return x1; };
+    if (opts.grid) {   // align with another staff: x positions come from a shared list of onset positions (+ end)
+      const g = opts.grid, gw = g.slice(0, -1).map((p, k) => Math.pow(g[k + 1] - p, 0.6)), uG = (x1 - x0) / (gw.reduce((a, b) => a + b, 0) || 1);
+      X = (pos) => { let a = 0; for (let k = 0; k < gw.length; k++) { if (g[k + 1] > pos + 1e-9) return x0 + 8 + (a + gw[k] * (pos - g[k]) / (g[k + 1] - g[k])) * uG; a += gw[k]; } return x1; };
+      els.forEach((e, i) => (xs[i] = X(e.pos)));
+    }
     const midY = TOP + 2 * SP;
     let s = `<svg class="staff measure" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
     if (clef === 'perc') s += `<line x1="4" x2="${W - 4}" y1="${midY}" y2="${midY}" stroke="currentColor"/>`;
@@ -122,6 +127,13 @@
       const hollow = e.sym === 'w' || e.sym === 'h';
       s += `<ellipse cx="${x}" cy="${y}" rx="6.2" ry="4.5" transform="rotate(-20 ${x} ${y})" fill="${hollow ? 'none' : col}" stroke="${col}" stroke-width="${hollow ? 1.8 : 0}"/>`;
       if (e.dot) s += `<circle cx="${x + 11}" cy="${y - 2}" r="1.8" fill="${col}"/>`;
+      if (clef !== 'perc' && e.names) for (const n2 of e.names) {   // extra notes sounding together (dyads / chords)
+        if (n2 === e.name) continue; const p2 = parse(n2), y2 = yOf(p2.d, clef), bd = BOTTOM_D[clef];
+        for (let d = bd - 2; d >= p2.d; d -= 2) s += `<line x1="${x - 10}" x2="${x + 10}" y1="${yOf(d, clef)}" y2="${yOf(d, clef)}" stroke="currentColor"/>`;
+        for (let d = bd + 10; d <= p2.d; d += 2) s += `<line x1="${x - 10}" x2="${x + 10}" y1="${yOf(d, clef)}" y2="${yOf(d, clef)}" stroke="currentColor"/>`;
+        if (p2.acc && !e.hideAcc) s += `<text x="${x - 19}" y="${y2 + 5}" class="acc" fill="${col}">${ACC[p2.acc]}</text>`;
+        s += `<ellipse cx="${x}" cy="${y2}" rx="6.2" ry="4.5" transform="rotate(-20 ${x} ${y2})" fill="${hollow ? 'none' : col}" stroke="${col}" stroke-width="${hollow ? 1.8 : 0}"/>`;
+      }
       const up = stemUp(e), sx = up ? x + 5.6 : x - 5.6, sy = up ? y - 30 : y + 30;
       if (e.sym !== 'w') s += `<line x1="${sx}" x2="${sx}" y1="${y}" y2="${sy}" stroke="${col}" stroke-width="1.4"/>`;
       pts.push({ x, y, sx, sy, up, e, col, i });

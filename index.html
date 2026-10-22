@@ -17,8 +17,12 @@
     <div><h1>Piano Path</h1><div class="muted small" id="mapSub">From first notes to improvising, one unit at a time</div></div>
     <div class="headbtns"><span class="badge" id="dayStreak" title="Days in a row">🔥 0</span><button class="icon" data-open="settings" aria-label="Settings">⚙︎</button></div>
   </header>
-  <div class="row quick">
-    <button id="btnFree" class="ghost">🎧 Free practice</button>
+  <button class="daily-card" id="btnDaily"><div class="grow"><div class="dc-h">▶ Today’s practice</div><div class="muted small" id="dailySub">Warm-up, review, something new and a song · about 12 min</div></div><div class="dc-ring" id="dailyRing">0/4</div></button>
+  <div class="quick-grid">
+    <button id="btnSongs" class="ghost">🎵 Songs</button>
+    <button id="btnMetro" class="ghost">⏱ Metronome</button>
+    <button id="btnPlace" class="ghost">🧭 Find my level</button>
+    <button id="btnFree" class="ghost">🎧 Free play</button>
     <button id="btnStats" class="ghost">📊 Stats</button>
   </div>
   <div class="pill-row"><div class="pill mic-pill"><span class="dot"></span><span class="mic-txt">Mic off. It starts when you open a drill</span></div><div class="pill midi-pill" hidden><span class="dot"></span><span class="midi-txt">MIDI</span></div></div>
@@ -96,6 +100,7 @@
     <h2>Learn piano on your own piano</h2>
     <ul class="ob-list"><li><b>You play</b> your real piano or keyboard.</li><li><b>Your phone listens</b> and tells you right away if it was right.</li><li><b>Short lessons</b>, then practice that adapts to you.</li></ul>
     <button class="big primary" id="obNext1">Next →</button>
+    <button class="link" id="obPlace">I can already play: find my level</button>
     <button class="link" id="obSkip">I’ve used Piano Path before, skip</button>
   </div>
   <div class="start-card ob" id="ob2" hidden>
@@ -143,6 +148,73 @@
   <div class="hear-line"><span class="muted small">I hear:</span> <b id="dHear">—</b> <span class="muted small" id="dHearNotes"></span></div>
   <div class="row actions"><button id="dReplay" class="ghost" hidden>🔊 Replay</button><button id="dHint" class="ghost">👁 Show me</button><button id="dSkip" class="ghost">Skip ⏭</button></div>
   <div id="summary" class="summary" hidden></div>
+</section>
+
+<!-- ============ SONGS LIBRARY ============ -->
+<section id="songs" class="screen">
+  <header class="subhead"><button class="icon" data-back aria-label="Back">←</button><div class="grow"><h2>Songs &amp; pieces</h2><div class="muted small">Learn real music phrase by phrase. New pieces open as you move along the path.</div></div></header>
+  <ol class="units" id="songList"></ol>
+</section>
+
+<!-- ============ SONG PLAYER ============ -->
+<section id="song" class="screen">
+  <header class="subhead"><button class="icon" id="sgBack" aria-label="Back">←</button><div class="grow"><div class="muted small" id="sgBy"></div><h2 id="sgTitle"></h2></div><span class="badge" id="sgStars">☆☆☆</span></header>
+  <div class="topbar"><div class="pill mic-pill"><span class="dot"></span><span class="mic-txt">Mic</span></div><div class="meter small-meter"><div class="meter-fill lvl"></div><div class="meter-gate gt"></div></div></div>
+  <div class="sg-tabs" id="sgTabs"></div>
+  <div class="card song-card" id="sgCard">
+    <div class="row sg-meta"><span class="muted small" id="sgMeta"></span><span class="seg" id="sgTempo"></span></div>
+    <div class="staff-wrap" id="sgStaff"></div>
+    <div class="chips seq" id="sgNotes"></div>
+    <div class="beats" id="sgBeats"></div>
+    <div class="try-status" id="sgStatus"></div>
+    <div class="muted small" id="sgHear"></div>
+    <div class="sg-btns"><button id="sgListen" class="ghost">🔊 Listen</button><button id="sgLearn" class="primary">🎯 Learn the notes</button><button id="sgTime" class="ghost">⏱ Play in time</button></div>
+    <div id="sgTip" class="tipline"></div>
+  </div>
+  <div class="kbd-wrap" aria-hidden="true"><svg id="sgKbd" class="kbd"></svg></div>
+  <div class="row actions"><button id="sgShow" class="ghost">👁 Show keys</button><button id="sgNext" class="ghost">Next line →</button></div>
+</section>
+
+<!-- ============ DAILY PRACTICE ============ -->
+<section id="daily" class="screen">
+  <header class="subhead"><button class="icon" data-back aria-label="Back">←</button><div class="grow"><h2>Today’s practice</h2><div class="muted small" id="dyMin"></div></div><span class="badge" id="dyGoal">🎯 0</span></header>
+  <ol class="daily-list" id="dyList"></ol>
+  <p class="muted small" id="dyNote">Built from what you need most: a short warm-up, the items you miss most often, your next lesson, and a song. Do the parts in order or tap any one.</p>
+  <button id="dyGo" class="big primary">Start</button>
+  <button id="dyRebuild" class="link">↻ Build a fresh plan</button>
+</section>
+
+<!-- ============ PLACEMENT TEST ============ -->
+<section id="place" class="screen">
+  <header class="subhead"><button class="icon" data-back aria-label="Back">←</button><h2 class="grow">Find my level</h2></header>
+  <div class="card" id="plIntro">
+    <p class="lead">Already play? Answer a few quick checks on your piano. They get harder as you go. Stop whenever it gets too hard: the app starts you at the right place.</p>
+    <ol class="pl-steps" id="plSteps"></ol>
+    <p class="muted small">Each check is 3 questions. Get 2 right first try to move on. Nothing you already did is reset, and you can still open every lesson before your level.</p>
+    <button id="plGo" class="big primary">Start the test</button>
+  </div>
+  <div class="card" id="plResult" hidden>
+    <h3 id="plResH"></h3>
+    <p id="plResP"></p>
+    <div class="row"><button id="plRetry" class="ghost">Try again</button><button id="plApply" class="primary">Start there →</button></div>
+  </div>
+</section>
+
+<!-- ============ METRONOME ============ -->
+<section id="metro" class="screen">
+  <header class="subhead"><button class="icon" id="mtBack" aria-label="Back">←</button><h2 class="grow">Metronome</h2></header>
+  <div class="card metro-card">
+    <div class="mt-bpm"><button class="icon" id="mtMinus">−</button><div><div id="mtBpm" class="big-num">80</div><div class="muted small" id="mtName">beats per minute</div></div><button class="icon" id="mtPlus">+</button></div>
+    <input type="range" id="mtSlider" min="30" max="220" step="1" value="80" aria-label="Tempo">
+    <div class="beats mt-beats" id="mtBeats"></div>
+    <div class="seg-row" id="mtTs"></div>
+    <fieldset class="mt-ramp"><legend><label class="chk"><input type="checkbox" id="mtRamp"> Tempo ramp: speed up as you go</label></legend>
+      <div class="row"><label>+<select id="mtStep"><option>2</option><option selected>4</option><option>6</option><option>8</option></select> bpm</label><label>every <select id="mtBars"><option>1</option><option selected>2</option><option>4</option><option>8</option></select> bars</label><label>up to <select id="mtGoal"></select></label></div>
+    </fieldset>
+    <button id="mtGo" class="big primary">▶ Start</button>
+    <button id="mtTap" class="ghost">Tap tempo</button>
+    <p class="muted small">Play along on your piano. Start slowly enough to play it perfectly, then let the ramp push you a little faster each time. Graded tempo practice: the <b>Technique</b> unit raises its tempo automatically when you play cleanly.</p>
+  </div>
 </section>
 
 <!-- ============ FREE PRACTICE ============ -->
@@ -225,6 +297,7 @@
 <script src="detector.js"></script>
 <script src="staff.js"></script>
 <script src="curriculum.js"></script>
+<script src="songs.js"></script>
 <script src="lessons.js"></script>
 <script src="app.js"></script>
 </body>
