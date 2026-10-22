@@ -234,7 +234,7 @@
         const isCur = open && !mastered && !currentMarked && !u.selfCheck;
         li.className = 'unit' + (mastered ? ' mastered' : '') + (!open ? ' locked' : '') + (isCur ? ' current' : '') + (u.selfCheck ? ' guide' : '');
         if (isCur) currentMarked = true;
-        const tag = u.firstWin ? 'start here · 5 min · mic' : u.selfCheck ? 'guide + try-it steps' : u.rhythm ? 'rhythm · mic' : u.ear ? 'ear · buttons' : 'mic-graded';
+        const tag = u.firstWin ? 'start here · 5 min · mic' : u.tutorial ? 'tutorial · learn it step by step' : u.selfCheck ? 'guide + try-it steps' : u.rhythm ? 'rhythm · mic' : u.ear ? 'ear · buttons' : 'mic-graded';
         li.innerHTML = `<div class="num">${mastered ? '✓' : open ? (idx + 1) : '🔒'}</div><div class="grow"><div class="ttl">${u.title}</div><div class="lvl">${tag}${!open && prev ? ' · master “' + prev.title + '” to unlock' : ''}</div><div class="bar"><div style="width:${m}%"></div></div></div><div class="pct">${u.selfCheck ? (mastered ? 'done' : '') : m + '%'}</div>`;
         li.dataset.unit = u.id;
         if (open) li.onclick = () => openLesson(u.id);
@@ -257,7 +257,7 @@
   const tipOfDay = () => Ls.TIPS[Math.floor(Date.now() / 864e5) % Ls.TIPS.length];
   function openLesson(id, at) {
     curUnit = id; const u = unitOf(id), steps = Ls.steps(id), ud = Prog.unitData(id);
-    const i = at != null ? at : ud.lessonSeen && !u.firstWin ? steps.length : 0;
+    const i = at != null ? at : ud.lessonSeen && !(u.firstWin || u.tutorial) ? steps.length : 0;
     if (LS && LS.timer) clearTimeout(LS.timer);
     LS = { id, u, steps, i, done: new Set(ud.lessonDone || []), tr: null };
     show('lesson');
@@ -323,6 +323,8 @@
     if (exact && d % 12 === 0) { const o = Math.abs(d / 12); return `You played ${nm(m)}: right letter, wrong octave. Go ${o > 1 ? o + ' octaves' : 'one octave'} ${d > 0 ? 'lower (to the left)' : 'higher (to the right)'}.`; }
     if (!exact) d = ((d % 12) + 18) % 12 - 6;
     const k = Math.abs(d), side = d > 0 ? 'right' : 'left', back = d > 0 ? 'left' : 'right';
+    const isW = (x) => ![1, 3, 6, 8, 10].includes(((x % 12) + 12) % 12);
+    if (isW(m) && isW(tgt) && k <= 12) { const tg2 = m - d, w = Math.abs(dia(m) - dia(tg2)); return `That was ${exact ? nm(m) : letter(m)}. The note you want is ${exact ? nm(tg2) : letter(tg2)}, ${w === 1 ? 'one white key' : w + ' white keys'} to the ${back}.`; }
     const who = exact ? nm(m) : letter(m);
     if (k > 7) return `You played ${who}. That’s too far ${side}. Look for the key further ${back}.`;
     return `You played ${who}. That’s ${k === 1 ? 'one key' : k + ' keys'} to the ${side} of ${exact ? nm(tgt) : letter(tgt)}. Move ${k === 1 ? 'one key' : k + ' keys'} ${back}.`;
@@ -451,16 +453,16 @@
     const { u, id } = { u: LS.u, id: LS.id }, m = Prog.mastery(id), ud = Prog.unitData(id);
     if (!ud.lessonSeen) { ud.lessonSeen = true; Prog.save(); }
     $('lsNav').hidden = true; $('btnStartDrill').hidden = false;
-    $('lessonVisual').innerHTML = ''; $('lessonText').innerHTML = u.firstWin ? '' : `<details><summary>Lesson summary</summary>${u.lesson}</details>`;
+    $('lessonVisual').innerHTML = ''; $('lessonText').innerHTML = u.firstWin || u.tutorial ? '' : `<details><summary>Lesson summary</summary>${u.lesson}</details>`;
     $('lsFinalTip').textContent = '💡 ' + tipOfDay();
     $('lessonBar').style.width = m + '%'; $('lessonPct').textContent = u.selfCheck ? (m ? 'done ✓' : 'not done yet') : `${m}% mastery`;
     $('lessonChecklist').innerHTML = u.selfCheck && u.checklist.length ? `<div class="muted small">Tick each one when you can do it:</div>` + u.checklist.map((c, i) => `<label class="chk"><input type="checkbox" data-i="${i}" ${(ud.checks || [])[i] ? 'checked' : ''}> ${c}</label>`).join('') : '';
     $$('#lessonChecklist input').forEach((cb) => (cb.onchange = () => { ud.checks = ud.checks || []; ud.checks[+cb.dataset.i] = cb.checked; Prog.save(); }));
     const nextId = C.ORDER[C.ORDER.indexOf(id) + 1];
-    if (u.firstWin) {
+    if (u.firstWin || u.tutorial) {
       const tries = LS.steps.filter((c) => c.try).length, got = LS.steps.filter((c, k) => c.try && LS.done.has(k)).length;
-      $('lsFinalH').textContent = got >= tries - 1 ? '🎉 You played your first tune!' : 'Almost there';
-      $('lessonRule').textContent = got >= tries - 1 ? 'You found middle C, learned finger numbers and played real notes. Next up: the five-finger position.' : `You’ve done ${got} of ${tries} try-it steps. Go back and try the ones you skipped. It’s quick!`;
+      $('lsFinalH').textContent = got >= tries - 1 ? (u.firstWin ? '🎉 You played your first tune!' : '🎉 Tutorial complete!') : 'Almost there';
+      $('lessonRule').textContent = got >= tries - 1 ? (u.firstWin ? 'You found middle C, learned finger numbers and played real notes. Next up: the five-finger position.' : `You can now: ${u.lesson.charAt(0).toLowerCase() + u.lesson.slice(1)} Next: ${unitOf(nextId) ? unitOf(nextId).title : 'more practice'}.`) : `You’ve done ${got} of ${tries} try-it steps. Go back and try the ones you skipped. It’s quick!`;
       if (got >= tries - 1 && !m) Prog.markDone(id, true);
       $('btnStartDrill').textContent = 'Next lesson →'; $('btnStartDrill').onclick = () => openLesson(nextId, 0);
       $('lessonBar').style.width = Prog.mastery(id) + '%'; $('lessonPct').textContent = Prog.mastery(id) ? 'done ✓' : `${got}/${tries} steps`;
@@ -493,14 +495,26 @@
     Prog.unitData(unitId).sessions++; Prog.save();
     show('drill'); $('summary').hidden = true; $('drillUnit').textContent = `Unit ${C.ORDER.indexOf(u.id) + 1}: ${u.title}`;
     frameHandler = drillFrame;
+    const rc = !opts.items && !opts.fast && refresherCard(u.id);
+    $('dRefresh').hidden = !rc; $('drillCard').hidden = !!rc; $('drill').classList.toggle('refreshing', !!rc); $('dHint').textContent = '👁 Show me';
+    if (rc) {
+      $('rfH').textContent = rc.h; $('rfP').innerHTML = rc.p;
+      $('rfVis').innerHTML = (rc.staff ? `<div class="staff-wrap">${renderSpec(rc.staff)}</div>` : '') + (rc.beats ? Ls.beats(rc.beats.r, rc.beats) : '') + (rc.hand ? Ls.hand(rc.hand.side, rc.hand.on, rc.hand.names) : '') + (rc.kbd != null ? Ls.keyboard(rc.kbd) : '');
+      Dr.waiting = true; $('rfGo').onclick = () => { $('dRefresh').hidden = true; $('drillCard').hidden = false; Dr.waiting = false; $('drill').classList.remove('refreshing'); nextItem(); };
+      $('rfLesson').onclick = () => { const id = u.id; Dr = null; openLesson(id, 0); };
+      return;
+    }
     nextItem();
+  }
+  function refresherCard(id) {   // the lesson card that best sums up the skill: one with a picture and a try-it step
+    const st = Ls.steps(id); return st.find((c) => c.try && c.try.t !== 'self' && (c.kbd || c.staff || c.hand || c.beats)) || st.find((c) => c.kbd || c.staff || c.beats) || null;
   }
   function nextItem() {
     if (Dr.n >= Dr.len) return showSummary();
     const key = Dr.fixed && Dr.fixed.length ? Dr.fixed.shift() : Prog.pick(Dr.u.id, Dr.lastKey);
     const it = Dr.u.item(key);
     Object.assign(Dr, { key, it, lastKey: key, shownAt: performance.now(), attempt: null, tries: 0, step: 0, missed: false, locked: false, hinted: false, recorded: false, revealed: false, playing: false });
-    $('drillProg').style.width = (100 * Dr.n / Dr.len) + '%';
+    $('drillProg').style.width = (100 * Dr.n / Dr.len) + '%'; $('dHint').textContent = '👁 Show me';
     $('drillCard').className = 'prompt-card';
     $('dTitle').textContent = it.title; $('dBig').textContent = it.big || ''; $('dBig').style.fontSize = (it.big || '').length > 8 ? '2.1rem' : '';
     $('dStaff').innerHTML = renderSpec(it.staff);
@@ -693,7 +707,8 @@
   function itemCorrect(res, timing) {
     Dr.locked = true;
     const ms = timing ? timing.ms : performance.now() - Dr.shownAt, firstTry = !Dr.missed && !Dr.hinted && Dr.tries === 0;
-    if (!Dr.recorded) Prog.record(Dr.u.id, Dr.key, firstTry, ms, timing ? timing.target : (Dr.it.targetMs || Dr.u.targetMs));
+    const hintOnly = Dr.hinted && !Dr.missed && Dr.tries === 0;     // used "Show me" but played it right: half credit, no penalty
+    if (!Dr.recorded) Prog.record(Dr.u.id, Dr.key, firstTry || hintOnly, ms, timing ? timing.target : (Dr.it.targetMs || Dr.u.targetMs), hintOnly ? 0.5 : 1);
     Dr.results.push({ key: Dr.key, ok: firstTry, ms }); Dr.n++;
     Dr.streak = firstTry ? Dr.streak + 1 : 0; $('drillStreak').textContent = `${Dr.streak} in a row`;
     log(true, res.heardLabel);
@@ -709,13 +724,15 @@
     $('drillCard').className = 'prompt-card wrong';
     const gt = Dr.it.grade.type;
     let msg = fromButton ? `Not ${res.heardLabel}. Listen again?` : (gt === 'rhythm' || gt === 'expr' || gt === 'improv') ? `✗ ${res.heardLabel}. Try again` : `Heard ${pretty(res.heardLabel)}. Try again`;
+    const tg = Dr.it.grade.target, hm = /^[A-G][#b]?-?\d$/.test(res.heardLabel || '') ? C.midiOf(res.heardLabel) : null;
+    if (!fromButton && tg && tg.kind === 'note' && hm != null) msg = explain(hm, tg.midi != null ? tg.midi : hm + ((((tg.pcs[0] - hm) % 12) + 18) % 12 - 6), tg.midi != null) + ' Try again.';
     if (!fromButton && res.missing && res.missing.length && Dr.tries >= 2) msg += ` (missing ${res.missing.map((pc) => pretty(D.PC_FLAT[pc])).join(', ')})`;
     $('dStatus').textContent = msg;
     if (Dr.tries >= maxTries()) reveal();
     setTimeout(() => { if (Dr && !Dr.locked) $('drillCard').className = 'prompt-card'; }, 900);
   }
   function showAnswer() {
-    Dr.revealed = true; $('dAnswer').textContent = Dr.it.answer;
+    Dr.revealed = true; $('dAnswer').innerHTML = pretty(Dr.it.answer) + (landmarkHint() ? `<div class="muted small">${landmarkHint()}</div>` : '');
     if (Dr.it.reveal) $('dStaff').innerHTML = renderSpec(Dr.it.reveal);
     drawKeyboard($('dKbd'), Dr.it.show, []);
   }
@@ -724,9 +741,26 @@
     Dr.hinted = true; showAnswer(); renderSeq();
     $('dStatus').textContent += '. Here is the answer. Play it to continue, or skip.';
   }
-  $('dHint').onclick = () => { if (!Dr || Dr.locked) return; Dr.hinted = true; showAnswer(); renderSeq(); };
+  $('dHint').onclick = () => {        // "Show me" toggle: highlights the keys and explains how to find them; costs half credit
+    if (!Dr || Dr.locked || !Dr.it) return;
+    if (Dr.revealed) { Dr.revealed = false; $('dAnswer').innerHTML = ''; $('dStaff').innerHTML = renderSpec(Dr.it.staff); drawKeyboard($('dKbd'), [], []); $('dHint').textContent = '👁 Show me'; return; }
+    if (!Dr.hinted) testLog.push({ unit: Dr.u.id, key: Dr.key, hint: true });
+    Dr.hinted = true; showAnswer(); renderSeq(); $('dHint').textContent = '🙈 Hide';
+    if (!Dr.missed) $('dStatus').textContent = 'Now play it. With a hint it counts for half credit.';
+  };
+  const LETTERS = 'CDEFGAB';
+  function dia(m) { const n = D.midiName(m), oct = +n.slice(-1); return oct * 7 + LETTERS.indexOf(n[0]); }
+  function landmarkHint() {      // "Find middle C, then go 2 white keys up" for single exact notes on a staff
+    const it = Dr && Dr.it, tg = it && it.grade && it.grade.target; if (!tg || tg.kind !== 'note' || tg.midi == null || !it.staff) return '';
+    const sp = it.staff, bass = sp.clef === 'bass' || (sp.grand && sp.notes && sp.notes[0] && sp.notes[0].staff === 'bass');
+    const LM = bass ? [[60, 'middle C'], [53, 'bass F (the line between the clef’s two dots)'], [48, 'low C (2nd space)'], [43, 'G, the bottom line'], [57, 'A, the top line'], [36, 'C two ledger lines below the bass staff']] : [[60, 'middle C'], [67, 'treble G (the line the clef curls around)'], [72, 'high C (3rd space)'], [77, 'F, the top line'], [64, 'E, the bottom line'], [84, 'C two ledger lines above the treble staff']];
+    const d = dia(tg.midi); let best = LM[0]; for (const l of LM) if (Math.abs(dia(l[0]) - d) < Math.abs(dia(best[0]) - d)) best = l;
+    const k = d - dia(best[0]), name = pretty(D.midiName(tg.midi)), acc = /[#b]/.test(D.midiName(tg.midi)) ? (D.midiName(tg.midi).includes('#') ? ' Then the ♯ means one key right.' : ' Then the ♭ means one key left.') : '';
+    if (!k) return `This is ${best[1]}.${acc}`;
+    return `Find ${best[1]}, then count ${Math.abs(k)} step${Math.abs(k) > 1 ? 's' : ''} ${k > 0 ? 'up' : 'down'} (${Math.abs(k)} white key${Math.abs(k) > 1 ? 's' : ''} to the ${k > 0 ? 'right' : 'left'}).${acc}`;
+  }
   $('dSkip').onclick = () => {
-    if (!Dr || Dr.locked) return;
+    if (!Dr || Dr.locked || !Dr.it) return;
     if (!Dr.recorded) Prog.record(Dr.u.id, Dr.key, false, performance.now() - Dr.shownAt, Dr.u.targetMs);
     Dr.results.push({ key: Dr.key, ok: false }); Dr.n++; Dr.streak = 0; Dr.locked = true; showAnswer();
     $('dStatus').textContent = 'Skipped. It will come back soon.'; setTimeout(nextItem, 1600);

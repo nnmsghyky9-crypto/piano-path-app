@@ -230,6 +230,17 @@
       lesson: 'Set up your phone, find middle C, learn finger numbers and play your first tune. Every step is checked by the mic.',
       checklist: [],
       visual: { clef: 'treble', notes: ['C4', 'D4', 'E4'], labels: ['1', '2', '3'] } },
+    { id: 37, title: 'Tutorial: the musical alphabet', level: 'Beginner', selfCheck: true, tutorial: true, lesson: 'The 7 letter names A–G, how they repeat, and finding each one from the black-key groups.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 43, title: 'Tutorial: note lengths & counting', level: 'Beginner', selfCheck: true, tutorial: true, lesson: 'Quarter, half and whole notes, rests, and counting the beat out loud.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 38, title: 'Tutorial: what the staff is', level: 'Beginner', selfCheck: true, tutorial: true, lesson: 'Five lines, lines vs spaces, and how notes step up and down.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 39, title: 'Tutorial: treble clef landmarks', level: 'Beginner', selfCheck: true, tutorial: true, lesson: 'Middle C, treble G and high C, then stepping to every other note; E-G-B-D-F and F-A-C-E.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 40, title: 'Tutorial: bass clef landmarks', level: 'Beginner', selfCheck: true, tutorial: true, lesson: 'Bass F, middle C and low C, then stepping; G-B-D-F-A and A-C-E-G.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 41, title: 'Tutorial: staff to keyboard & ledger lines', level: 'Beginner', selfCheck: true, tutorial: true, lesson: 'How both staffs map onto the keyboard, and reading notes on ledger lines.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 42, title: 'Tutorial: sharps & flats on the staff', level: 'Beginner', selfCheck: true, tutorial: true, lesson: '♯, ♭ and ♮ in front of a note, and what a key signature does.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 46, title: 'Tutorial: half steps, whole steps & intervals', level: 'Intermediate', selfCheck: true, tutorial: true, lesson: 'A half step is the very next key. Counting distance between notes.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 44, title: 'Tutorial: chords from zero (major)', level: 'Intermediate', selfCheck: true, tutorial: true, lesson: 'What a chord is; building a major triad by counting keys; C, F and G major.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 45, title: 'Tutorial: minor chords, chord symbols & two hands', level: 'Intermediate', selfCheck: true, tutorial: true, lesson: 'Making minor chords, reading C / Am / G7, and splitting a chord between the hands.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
+    { id: 47, title: 'Tutorial: chord numbers (Roman numerals)', level: 'Intermediate', selfCheck: true, tutorial: true, lesson: 'Numbering the notes of a scale and naming chords I, IV, V, vi.', checklist: [], visual: { clef: 'treble', notes: ['C4'] } },
     { id: 11, title: 'Hand position & five-finger patterns', level: 'Beginner', targetMs: 9000,
       lesson: 'Fingers are numbered <b>1 = thumb</b> to <b>5 = pinky</b> in both hands. In <b>C position</b>, the right-hand thumb sits on middle C and each finger covers one white key: C D E F G. Keep the fingers curved, play on the fingertips, and don\'t let the knuckles collapse. Play the pattern up and back down evenly, one finger per key. <b>Tip:</b> the left hand is a mirror image, with the pinky on C below middle C.',
       visual: { clef: 'treble', notes: ['C4', 'D4', 'E4', 'F4', 'G4'], labels: ['1', '2', '3', '4', '5'] },
@@ -504,7 +515,7 @@
   ];
   NEW_UNITS.forEach((u) => UNITS.push(u));
   const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-  const ORDER = [35, 11, 1, 12, 2, 3, 13, 14, 15, 4, 16, 5, 6, 7, 17, 18, 9, 22, 19, 20, 21, 23, 8, 24, 25, 26, 27, 10, 28, 29, 30, 31, 32, 33, 34, 36];
+  const ORDER = [35, 37, 1, 11, 43, 12, 38, 39, 2, 40, 3, 41, 13, 42, 14, 15, 46, 4, 16, 44, 45, 5, 6, 7, 17, 18, 47, 9, 22, 19, 20, 21, 23, 8, 24, 25, 26, 27, 10, 28, 29, 30, 31, 32, 33, 34, 36];
   const LEVEL_OF = { 1: 'Beginner', 2: 'Beginner', 3: 'Beginner', 4: 'Intermediate', 5: 'Intermediate', 6: 'Intermediate', 7: 'Intermediate', 9: 'Intermediate', 8: 'Advanced', 10: 'Advanced' };
   UNITS.forEach((u) => { if (LEVEL_OF[u.id]) u.level = LEVEL_OF[u.id]; });
   UNITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
@@ -526,7 +537,7 @@
       const u = unitData(id), h = u.hist;
       if (unitDef(id) && unitDef(id).selfCheck) return u.selfDone ? 100 : 0;
       if (!h.length) return 0;
-      const acc = h.filter((x) => x.ok).length / h.length;
+      const acc = h.reduce((a, x) => a + (x.ok ? (x.credit != null ? x.credit : 1) : 0), 0) / h.length;   // hinted answers earn partial credit
       const oks = h.filter((x) => x.ok); const speed = oks.length ? oks.reduce((s, x) => s + Math.max(0.4, Math.min(1, x.target / x.ms)), 0) / oks.length : 0;
       return Math.round(100 * acc * (0.5 + 0.5 * speed) * Math.min(1, h.length / MIN_FOR_MASTERY));
     }
@@ -544,12 +555,13 @@
     }
     function markDone(id, done = true) { unitData(id).selfDone = done; const d = today(); if (!data.days.includes(d)) data.days.push(d); save(); }
     const itemBox = (id, key) => ((unitData(id).items[key] || {}).box || 0);
-    function record(id, key, ok, ms, target) {
-      const u = unitData(id);
-      u.hist.push({ ok, ms: Math.round(ms), target, key }); if (u.hist.length > HIST) u.hist.shift();
+    function record(id, key, ok, ms, target, credit = 1) {
+      const u = unitData(id), e = { ok, ms: Math.round(ms), target, key }; if (ok && credit < 1) e.credit = credit;
+      u.hist.push(e); if (u.hist.length > HIST) u.hist.shift();
       const it = (u.items[key] = u.items[key] || { box: 0, seen: 0, miss: 0 });
       it.seen++;
       if (!ok) { it.miss++; it.box = 0; u.retry.push({ key, wait: 2 }); }      // missed: comes back after 2 other items
+      else if (credit < 1) u.retry.push({ key, wait: 3 });                     // solved with a hint: no promotion, comes back soon
       else if (ms <= target) it.box = Math.min(4, it.box + 1);
       else it.box = Math.max(1, it.box);                                        // correct but slow: stays in rotation
       data.total++; if (ok) data.correct++;

@@ -95,3 +95,8 @@ button.danger{color:var(--bad);border-color:#5a2630;width:100%;margin-top:14px}
 .lnav{display:flex;gap:10px;margin:12px 0}.lnav button{flex:1;padding:14px;font-size:1.05rem}.lnav[hidden]{display:none}
 .ob{text-align:left}.ob h2,.ob .logo{text-align:center}.ob-list{padding-left:20px;line-height:1.6;font-size:1.05rem}.ob-list li{margin:8px 0}
 details summary{cursor:pointer;color:var(--acc)}
+.refresh{margin:8px 0}.refresh[hidden],#drillCard[hidden]{display:none!important}.refresh h3{margin:4px 0}
+.unit.tut .num{background:#2d3b2a}
+.kb2 .kl.ks{fill:#40444f}
+#drill.refreshing .kbd-wrap,#drill.refreshing #dKbd,#drill.refreshing .heard,#drill.refreshing .actions,#drill.refreshing #dHear,#drill.refreshing #dHearNotes{display:none!important}
+#drill.refreshing .hear-line{display:none!important}

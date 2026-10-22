@@ -121,6 +121,12 @@
     <span class="badge" id="drillStreak">0 in a row</span>
   </header>
   <div class="topbar"><div class="pill mic-pill"><span class="dot"></span><span class="mic-txt">Mic</span></div><div class="meter small-meter"><div class="meter-fill lvl"></div><div class="meter-gate gt"></div></div><div class="pill midi-pill" hidden><span class="dot"></span><span class="midi-txt">MIDI</span></div></div>
+  <div class="card refresh" id="dRefresh" hidden>
+    <div class="try-label">Quick refresher</div>
+    <h3 id="rfH"></h3><div id="rfVis" class="ls-vis"></div><p id="rfP" class="ls-p"></p>
+    <div class="muted small">Stuck during practice? Tap <b>👁 Show me</b>. You still get half credit.</div>
+    <div class="row center"><button class="ghost" id="rfLesson">Full lesson</button><button class="primary" id="rfGo">Got it, start ▶</button></div>
+  </div>
   <main class="prompt-card" id="drillCard">
     <div class="prompt-label" id="dTitle"></div>
     <div class="prompt" id="dBig"></div>
@@ -135,7 +141,7 @@
   </main>
   <div class="kbd-wrap" aria-hidden="true"><svg id="dKbd" class="kbd"></svg></div>
   <div class="hear-line"><span class="muted small">I hear:</span> <b id="dHear">—</b> <span class="muted small" id="dHearNotes"></span></div>
-  <div class="row actions"><button id="dReplay" class="ghost" hidden>🔊 Replay</button><button id="dHint" class="ghost">💡 Hint</button><button id="dSkip" class="ghost">Skip ⏭</button></div>
+  <div class="row actions"><button id="dReplay" class="ghost" hidden>🔊 Replay</button><button id="dHint" class="ghost">👁 Show me</button><button id="dSkip" class="ghost">Skip ⏭</button></div>
   <div id="summary" class="summary" hidden></div>
 </section>
 

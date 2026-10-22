@@ -21,10 +21,11 @@
     const whites = []; for (let m = lo; m <= hi; m++) if (!isBlack(m)) whites.push(m);
     const W = 360 / whites.length, H = 92;
     let s = `<svg class="kb2" viewBox="0 0 360 ${H + 16}" xmlns="http://www.w3.org/2000/svg">`;
-    const fillOf = (m, base) => (opts.heard && opts.heard.midi === m ? (opts.heard.ok ? '#3ecf8e' : '#ff6b6b') : map.has(m) ? '#6ea8ff' : base);
+    const skip = (m) => map.has(m) && map.get(m).startsWith('~');
+    const fillOf = (m, base) => (opts.heard && opts.heard.midi === m ? (opts.heard.ok ? '#3ecf8e' : '#ff6b6b') : skip(m) ? '#9aa0ad' : map.has(m) ? '#6ea8ff' : base);
     whites.forEach((m, i) => {
       s += `<rect x="${i * W}" y="0" width="${W - 1}" height="${H}" rx="3" fill="${fillOf(m, '#f4f5f8')}" stroke="#222"/>`;
-      if (map.has(m) && map.get(m)) s += `<text x="${i * W + W / 2}" y="${H - 9}" class="kl">${map.get(m)}</text>`;
+      if (map.has(m) && map.get(m)) s += skip(m) ? `<text x="${i * W + W / 2}" y="${H - 9}" class="kl ks">✕</text>` : `<text x="${i * W + W / 2}" y="${H - 9}" class="kl">${map.get(m)}</text>`;
       if (m === 60) s += `<text x="${i * W + W / 2}" y="${H + 13}" class="km">middle C</text>`;
       else if (m % 12 === 0 && opts.cLabels !== false) s += `<text x="${i * W + W / 2}" y="${H + 13}" class="kc">C</text>`;
     });
@@ -141,6 +142,7 @@
     { h: 'Distance between notes', p: 'An <b>interval</b> is how far apart two notes are. Count the letters, including both ends: C→E is C-D-E = a <b>3rd</b>.', kbd: 'C4:1 D4:2 E4:3' },
     { h: 'A 5th', p: 'C up to G is C-D-E-F-G = a <b>5th</b>. With your right hand: thumb on C, pinky on G. Play them together.', kbd: 'C4:1 G4:5', demo: { chord: ['C4', 'G4'] }, try: { t: 'chord', n: ['C4', 'G4'], say: 'Play C and G together' } },
     { h: 'Major and minor 3rds', p: 'Count every key, black ones too. <b>4 keys up</b> from C is E: a <b>major 3rd</b> (bright). 3 keys up is E♭: a <b>minor 3rd</b> (darker).', kbd: 'C4:C E4:E Eb4:E♭', demo: { chord: ['C4', 'E4'] }, try: { t: 'chord', n: ['C4', 'E4'], say: 'Play C and E (a major 3rd)' } },
+    { h: '6ths and 7ths', p: 'Same counting: C→A = C-D-E-F-G-A = <b>6 letters, a 6th</b>. D→C = <b>a 7th</b>. Big intervals are easier one note after the other.', kbd: 'D4:1 C5:7', try: { t: 'chord', n: ['D4', 'C5'], say: 'Play D and the C above it (a 7th)' } },
     { h: 'A 4th', p: 'C up to F is a <b>4th</b> (5 keys up). In the drill you can play the two notes together or one after the other.', kbd: 'C4:C F4:F', try: { t: 'chord', n: ['C4', 'F4'], say: 'Play C and F' } },
   ];
   L[16] = [
@@ -281,6 +283,95 @@
     { h: 'Perform it', p: 'Record a full run-through on your phone. <b>Don’t stop</b> for slips. Listen back once.', try: { t: 'self', say: 'Tap when you’ve recorded a run-through' } },
   ];
 
+  // ======== from-zero tutorials ========
+  L[37] = [
+    { h: 'Only 7 letters', p: 'Piano notes use just 7 letters: <b>A B C D E F G</b>. After G it starts again at A.', kbd: 'C4:C D4:D E4:E F4:F G4:G A4:A B4:B C5:C' },
+    { h: 'Your anchor: C', p: 'Remember: <b>C is just left of the two black keys</b>. Play any C.', kbd: 'C4:C', try: { t: 'note', n: 'C4', say: 'Play any C' } },
+    { h: 'D is in the middle', p: '<b>D</b> sits <b>between</b> the two black keys. Play any D.', kbd: 'C#4 D4:D D#4', try: { t: 'note', n: 'D4', say: 'Play any D' } },
+    { h: 'E is just right of them', p: '<b>E</b> is just <b>right</b> of the two black keys. Play any E.', kbd: 'E4:E', try: { t: 'note', n: 'E4', say: 'Play any E' } },
+    { h: 'F starts the group of three', p: '<b>F</b> is just <b>left</b> of the <b>three</b> black keys. Play any F.', kbd: 'F4:F F#4 G#4 A#4', try: { t: 'note', n: 'F4', say: 'Play any F' } },
+    { h: 'G, A, B', p: 'Keep walking right: <b>G</b>, <b>A</b>, <b>B</b> sit around the three black keys. Play any A (between the 2nd and 3rd black key).', kbd: 'G4:G A4:A B4:B', try: { t: 'note', n: 'A4', say: 'Play any A' } },
+    { h: 'Walk the alphabet', p: 'Play all 7 letters from C: <b>C D E F G A B</b>, one white key at a time.', kbd: 'C4:C D4:D E4:E F4:F G4:G A4:A B4:B', try: { t: 'seq', n: ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'], say: 'Play C D E F G A B' }, tip: 'Going right = higher sound = later in the alphabet.' },
+  ];
+  L[43] = [
+    { h: 'Music has a beat', p: 'Like a clock: tick, tick, tick, tick. We count it <b>1 2 3 4</b>.', beats: { r: 'q q q q' }, demo: { r: 'q q q q', bpm: 72 } },
+    { h: 'Quarter note = 1 beat', p: 'A black note with a stem, ♩, lasts <b>1 beat</b>. Play 4 of them, evenly.', staff: { measure: true, rhythm: 'q q q q', timeSig: [4, 4] }, try: { t: 'pulse', count: 4, say: 'Play 4 even notes (any key)' } },
+    { h: 'Half note = 2 beats', p: 'A <b>hollow</b> note with a stem lasts <b>2 beats</b>. Press on “1”, hold through “2”.', staff: { measure: true, rhythm: 'h h', timeSig: [4, 4] }, beats: { r: 'h h' }, try: { t: 'rhythm', r: 'h h', bpm: 70, say: 'Play 2 half notes after the clicks' } },
+    { h: 'Whole note = 4 beats', p: 'A hollow note <b>without a stem</b> lasts the whole bar: <b>4 beats</b>.', staff: { measure: true, rhythm: 'w', timeSig: [4, 4] }, beats: { r: 'w' }, demo: { r: 'w', bpm: 72 } },
+    { h: 'Rests: count, but don’t play', p: 'A rest is silence. This one is a quarter rest: 1 beat of silence.', staff: { measure: true, rhythm: 'q qr q qr', timeSig: [4, 4] }, beats: { r: 'q qr q qr' }, try: { t: 'rhythm', r: 'q qr q qr', bpm: 70, say: 'Play on 1 and 3 only' } },
+    { h: 'The two numbers at the start', p: '<b>4/4</b>: the top number says how many beats are in each bar (4). The bar line (|) marks the end of a bar.', staff: { measure: true, rhythm: 'q q h | h h', timeSig: [4, 4] } },
+  ];
+  L[38] = [
+    { h: 'The staff', p: 'Music is written on <b>5 lines</b>. The gaps between them are <b>spaces</b>. Notes sit either <b>on a line</b> or <b>in a space</b>.', staff: { clef: 'treble', notes: ['E4', 'F4'], labels: ['line', 'space'] } },
+    { h: 'Higher on the page = higher sound', p: 'A note higher up the staff is a key further <b>right</b> on the piano. Lower on the staff = further <b>left</b>.', staff: { clef: 'treble', notes: ['E4', 'G4', 'B4', 'D5'] }, kbd: 'E4:1 G4:2 B4:3 D5:4' },
+    { h: 'One step = next white key', p: 'Line → next space (or space → next line) is a <b>step</b>: the very next white key. Here: C, D, E. Play them.', staff: { clef: 'treble', notes: ['C4', 'D4', 'E4'] }, kbd: 'C4:C D4:D E4:E', try: { t: 'seq', n: ['C4', 'D4', 'E4'], say: 'Play C D E (stepping up)' } },
+    { h: 'Skips', p: 'Line → next line skips one white key. E to G is a skip. Play E then G.', staff: { clef: 'treble', notes: ['E4', 'G4'] }, kbd: 'E4:E G4:G', try: { t: 'seq', n: ['E4', 'G4'], say: 'Play E then G (a skip)' } },
+    { h: 'Going down', p: 'Notes moving down the page step to the left. Play G, F, E.', staff: { clef: 'treble', notes: ['G4', 'F4', 'E4'] }, kbd: 'E4:E F4:F G4:G', try: { t: 'seq', n: ['G4', 'F4', 'E4'], say: 'Play G F E (stepping down)' } },
+  ];
+  L[39] = [
+    { h: 'The treble clef', p: 'This curly sign is the <b>treble clef</b>. It is for higher notes, usually your right hand. Learn 3 <b>landmark</b> notes; find the rest by stepping.', staff: { clef: 'treble', notes: [] } },
+    { h: 'Landmark 1: middle C', p: 'Middle C sits on a short extra line <b>below</b> the staff. Play it.', staff: { clef: 'treble', notes: ['C4'] }, kbd: 'C4:C', try: { t: 'note', n: 'C4', exact: true, say: 'Play this note (middle C)' } },
+    { h: 'Landmark 2: treble G', p: 'The clef’s curl wraps around the <b>2nd line</b>. That line is <b>G</b>, the G just above middle C. Play it.', staff: { clef: 'treble', notes: ['G4'] }, kbd: 'G4:G', try: { t: 'note', n: 'G4', exact: true, say: 'Play this G' } },
+    { h: 'Landmark 3: high C', p: '<b>3rd space</b> = <b>C</b>, one octave above middle C (8 white keys up). Play it.', staff: { clef: 'treble', notes: ['C5'] }, kbd: 'C4:middle C5:C', try: { t: 'note', n: 'C5', exact: true, say: 'Play this C' } },
+    { h: 'Step from a landmark', p: 'This note is <b>one step above middle C</b>: D. Find middle C, go one white key right.', staff: { clef: 'treble', notes: ['C4', 'D4'], labels: ['C', '?'] }, kbd: 'C4:C D4:?', try: { t: 'note', n: 'D4', exact: true, say: 'Play the note after C' } },
+    { h: 'Step down from G', p: 'This note is <b>one step below G</b>, in the space under it: F.', staff: { clef: 'treble', notes: ['G4', 'F4'], labels: ['G', '?'] }, try: { t: 'note', n: 'F4', exact: true, say: 'Play the note below G' } },
+    { h: 'Lines: E G B D F', p: 'Bottom to top, the lines are <b>E G B D F</b>: “<b>E</b>very <b>G</b>ood <b>B</b>oy <b>D</b>oes <b>F</b>ine”. Start with the first three: E, G, B.', staff: { clef: 'treble', notes: ['E4', 'G4', 'B4'], labels: ['E', 'G', 'B'] }, try: { t: 'seq', n: ['E4', 'G4', 'B4'], exact: true, say: 'Play E G B (lines 1–3)' } },
+    { h: 'Top two lines: D, F', p: 'Lines 4 and 5 are <b>D</b> and <b>F</b> (“<b>D</b>oes <b>F</b>ine”). Play them.', staff: { clef: 'treble', notes: ['D5', 'F5'], labels: ['D', 'F'] }, try: { t: 'seq', n: ['D5', 'F5'], exact: true, say: 'Play D then F' } },
+    { h: 'Spaces spell FACE', p: 'The 4 spaces, bottom to top, spell <b>F A C E</b>. Play them.', staff: { clef: 'treble', notes: ['F4', 'A4', 'C5', 'E5'], labels: ['F', 'A', 'C', 'E'] }, try: { t: 'seq', n: ['F4', 'A4', 'C5', 'E5'], exact: true, say: 'Play F A C E' } },
+    { h: 'Above the staff', p: 'Notes keep going above the top line: G in the space on top, then <b>A</b> on a short extra line (a <b>ledger line</b>).', staff: { clef: 'treble', notes: ['F5', 'G5', 'A5'], labels: ['F', 'G', 'A'] }, try: { t: 'note', n: 'A5', exact: true, say: 'Play the A on the short line' } },
+    { h: 'Sharp and flat signs', p: 'A <b>♯</b> before a note = the key just right of it. A <b>♭</b> = the key just left. This is F♯.', staff: { clef: 'treble', notes: ['F#4'] }, kbd: 'F4:F F#4:F♯', try: { t: 'note', n: 'F#4', exact: true, say: 'Play this F♯' } },
+    { h: 'Test yourself', p: 'No labels now. Find a landmark and step from it.', staff: { clef: 'treble', notes: ['A4'] }, try: { t: 'note', n: 'A4', exact: true, say: 'Play this note' }, tip: 'Middle C, G (2nd line) and C (3rd space) are your anchors.' },
+  ];
+  L[40] = [
+    { h: 'The bass clef', p: 'This sign is the <b>bass clef</b>, for low notes, usually your left hand. Again: learn landmarks, then step.', staff: { clef: 'bass', notes: [] } },
+    { h: 'Landmark 1: bass F', p: 'The clef’s <b>two dots</b> sit around the <b>4th line</b>. That line is <b>F</b>, the F below middle C. Play it.', staff: { clef: 'bass', notes: ['F3'] }, kbd: 'F3:F C4:mid', try: { t: 'note', n: 'F3', exact: true, say: 'Play this F' } },
+    { h: 'Landmark 2: middle C', p: 'Middle C sits on a short line <b>above</b> the bass staff. Same key as before!', staff: { clef: 'bass', notes: ['C4'] }, try: { t: 'note', n: 'C4', exact: true, say: 'Play middle C' } },
+    { h: 'Landmark 3: low C', p: 'The <b>2nd space</b> is <b>C</b>, one octave below middle C.', staff: { clef: 'bass', notes: ['C3'] }, kbd: 'C3:C C4:mid', try: { t: 'note', n: 'C3', exact: true, say: 'Play this low C' } },
+    { h: 'Lines: G B D F A', p: 'Bottom to top: <b>G B D F A</b>, “<b>G</b>ood <b>B</b>oys <b>D</b>o <b>F</b>ine <b>A</b>lways”. Play the bottom three: G, B, D.', staff: { clef: 'bass', notes: ['G2', 'B2', 'D3'], labels: ['G', 'B', 'D'] }, try: { t: 'seq', n: ['G2', 'B2', 'D3'], exact: true, say: 'Play G B D (low)' } },
+    { h: 'Spaces: A C E G', p: '“<b>A</b>ll <b>C</b>ows <b>E</b>at <b>G</b>rass.” Play the 4 spaces.', staff: { clef: 'bass', notes: ['A2', 'C3', 'E3', 'G3'], labels: ['A', 'C', 'E', 'G'] }, try: { t: 'seq', n: ['A2', 'C3', 'E3', 'G3'], exact: true, say: 'Play A C E G' } },
+    { h: 'Below the staff', p: 'Under the bottom line G: F in the space, then <b>E</b> on a ledger line.', staff: { clef: 'bass', notes: ['G2', 'F2', 'E2'], labels: ['G', 'F', 'E'] }, try: { t: 'note', n: 'E2', exact: true, say: 'Play this low E' } },
+    { h: 'Flats in the bass', p: 'Same signs here: ♭ = one key left. This is B♭, just left of the low B.', staff: { clef: 'bass', notes: ['Bb2'] }, kbd: 'Bb2:B♭ B2:B', try: { t: 'note', n: 'Bb2', exact: true, say: 'Play this B♭' } },
+    { h: 'Test yourself', p: 'One step below the F line. Which note?', staff: { clef: 'bass', notes: ['E3'] }, try: { t: 'note', n: 'E3', exact: true, say: 'Play this note' } },
+  ];
+  L[41] = [
+    { h: 'Two staffs, one keyboard', p: 'The <b>treble</b> staff covers the right half of the keyboard, the <b>bass</b> staff the left half. They meet at <b>middle C</b>.', staff: { grand: true, notes: [{ name: 'C4', staff: 'treble' }, { name: 'C4', staff: 'bass' }] }, kbd: 'F3:bass C4:C G4:treble', },
+    { h: 'Ledger lines', p: 'Notes beyond the 5 lines get short extra lines, <b>ledger lines</b>. Keep counting steps from the staff. Above the treble’s top line F: G (space), then <b>A</b> on the first ledger line.', staff: { clef: 'treble', notes: ['F5', 'G5', 'A5'], labels: ['F', 'G', 'A'] }, try: { t: 'note', n: 'A5', exact: true, say: 'Play the A on the ledger line' } },
+    { h: 'Below the bass staff', p: 'Under the bass bottom line G: F (space), then <b>E</b> on a ledger line.', staff: { clef: 'bass', notes: ['G2', 'F2', 'E2'], labels: ['G', 'F', 'E'] }, try: { t: 'note', n: 'E2', exact: true, say: 'Play the low E' } },
+    { h: 'Near middle C', p: 'Just below middle C in the treble staff is <b>B</b> (hanging under its ledger line). Play it.', staff: { clef: 'treble', notes: ['C4', 'B3'], labels: ['C', 'B'] }, try: { t: 'note', n: 'B3', exact: true, say: 'Play the B below middle C' } },
+  ];
+  L[42] = [
+    { h: 'Sharp ♯ = one key right', p: 'A ♯ in front of a note means: play the key <b>just to the right</b>, usually black. This is F♯.', staff: { clef: 'treble', notes: ['F#4'] }, kbd: 'F4:F F#4:F♯', try: { t: 'note', n: 'F#4', exact: true, say: 'Play this F♯' } },
+    { h: 'Flat ♭ = one key left', p: 'A ♭ means the key <b>just to the left</b>. This is B♭.', staff: { clef: 'treble', notes: ['Bb4'] }, kbd: 'Bb4:B♭ B4:B', try: { t: 'note', n: 'Bb4', exact: true, say: 'Play this B♭' } },
+    { h: 'Natural ♮ = plain key', p: 'A ♮ cancels a sharp or flat: play the white key.', staff: { clef: 'treble', notes: ['Bn4'] }, kbd: 'B4:B', try: { t: 'note', n: 'B4', exact: true, say: 'Play this B natural' } },
+    { h: 'Key signature', p: 'Sharps or flats right after the clef apply to <b>every</b> note of that letter in the piece. Here every F is F♯.', staff: { clef: 'treble', notes: ['F4'], keySig: 'G' }, try: { t: 'note', n: 'F#4', exact: true, say: 'Play this note, using the key signature' } },
+  ];
+  L[46] = [
+    { h: 'Half step', p: 'A <b>half step</b> is the very next key, black or white. E to F is a half step (no black key between).', kbd: 'E4:E F4:F', try: { t: 'seq', n: ['E4', 'F4'], say: 'Play E then F' } },
+    { h: 'Whole step', p: 'A <b>whole step</b> = 2 half steps: skip one key. C to D is a whole step (C♯ is skipped).', kbd: 'C4:C C#4:skip D4:D', try: { t: 'seq', n: ['C4', 'D4'], say: 'Play C then D' } },
+    { h: 'Intervals count letters', p: 'An interval is a distance. Count letters, including both ends: <b>C→E</b> = C-D-E = a <b>3rd</b>. <b>C→G</b> = 5 letters = a <b>5th</b>.', kbd: 'C4:1 D4:2 E4:3 F4:4 G4:5', try: { t: 'chord', n: ['C4', 'G4'], say: 'Play C and G together (a 5th)' } },
+    { h: 'Counting keys for 3rds', p: 'A <b>major 3rd</b> is 4 half steps (C→E). A <b>minor 3rd</b> is 3 (C→E♭). You’ll use these to build chords.', kbd: 'C4:0 C#4:1 D4:2 D#4:3 E4:4', try: { t: 'chord', n: ['C4', 'E4'], say: 'Play C and E together' } },
+  ];
+  L[44] = [
+    { h: 'What is a chord?', p: 'A <b>chord</b> is several notes played <b>at the same time</b>. Listen.', demo: { chord: ['C4', 'E4', 'G4'] }, kbd: 'C4 E4 G4' },
+    { h: 'Build it: play, skip, play, skip, play', p: 'Start on the <b>root</b> (the chord’s name). Play it, skip a white key, play, skip, play. From C: <b>C</b>, skip D, <b>E</b>, skip F, <b>G</b>. Blue = play, grey = skip.', kbd: 'C4:C D4:~skip E4:E F4:~skip G4:G', p2: '' },
+    { h: 'Fingers 1, 3, 5', p: 'Right hand: thumb on C, middle finger on E, pinky on G. Press all three together.', hand: { side: 'R', on: [1, 3, 5], names: { 1: 'C', 3: 'E', 5: 'G' } }, kbd: 'C4:1 E4:3 G4:5', try: { t: 'chord', n: ['C4', 'E4', 'G4'], say: 'Play C major: C–E–G' } },
+    { h: 'F major', p: 'Same recipe from F: <b>F</b> (G) <b>A</b> (B) <b>C</b>. Move your whole hand so the thumb is on F.', kbd: 'F4:1 A4:3 C5:5', try: { t: 'chord', n: ['F4', 'A4', 'C5'], say: 'Play F major: F–A–C' } },
+    { h: 'G major', p: 'From G: <b>G</b> (A) <b>B</b> (C) <b>D</b>.', kbd: 'G4:1 B4:3 D5:5', try: { t: 'chord', n: ['G4', 'B4', 'D5'], say: 'Play G major: G–B–D' } },
+    { h: 'Check by counting keys', p: 'For a <b>major</b> chord: root → 4 half steps → middle note → 3 half steps → top note. D major needs F♯: D, F♯, A.', kbd: 'D4:1 F#4:3 A4:5', try: { t: 'chord', n: ['D4', 'F#4', 'A4'], say: 'Play D major: D–F♯–A' } },
+  ];
+  L[45] = [
+    { h: 'Minor = middle note down', p: 'Take a major chord and move the <b>middle note one key left</b>. C–E–G becomes <b>C–E♭–G</b>: C minor. It sounds sadder.', kbd: 'C4:1 Eb4:3 G4:5', demo: { seq2: [['C4', 'E4', 'G4'], ['C4', 'Eb4', 'G4']] }, try: { t: 'chord', n: ['C4', 'Eb4', 'G4'], say: 'Play C minor' } },
+    { h: 'A minor: all white', p: 'A minor = <b>A C E</b> (play, skip, play, skip, play from A). No black keys.', kbd: 'A3:1 C4:3 E4:5', try: { t: 'chord', n: ['A3', 'C4', 'E4'], say: 'Play A minor' } },
+    { h: 'Reading chord symbols', p: 'Above songs you’ll see names like <b>C</b>, <b>Am</b>, <b>G7</b>. The letter is the root. <b>m</b> = minor. Just a letter = major. <b>7</b> = add one more note on top (we’ll learn it later).', chips: ['C', 'Am', 'F', 'G7'] },
+    { h: 'D minor from the symbol', p: '“<b>Dm</b>”: root D, minor. Play, skip, play, skip, play from D: <b>D F A</b>.', kbd: 'D4:1 F4:3 A4:5', try: { t: 'chord', n: ['D4', 'F4', 'A4'], say: 'Play Dm' } },
+    { h: 'Two hands', p: 'Common way to play a chord symbol: <b>left hand plays the root</b> (low), <b>right hand plays the chord</b>. For C: LH C, RH C–E–G.', kbd: 'C3:LH C4:1 E4:3 G4:5', try: { t: 'chord', n: ['C3', 'C4', 'E4', 'G4'], bass: 'C', say: 'LH C + RH C–E–G' } },
+  ];
+  L[47] = [
+    { h: 'Number the scale', p: 'Number the notes of C major: C=1, D=2, E=3, F=4, G=5, A=6, B=7.', kbd: 'C4:1 D4:2 E4:3 F4:4 G4:5 A4:6 B4:7' },
+    { h: 'Chords get the number of their root', p: 'A chord built on note 4 (F) is chord <b>IV</b>. Roman numerals: I II III IV V VI VII. Play IV in C: F–A–C.', kbd: 'F4:1 A4:3 C5:5', try: { t: 'chord', n: ['F4', 'A4', 'C5'], say: 'Play IV in C (F major)' } },
+    { h: 'Big = major, small = minor', p: '<b>I, IV, V</b> are major. <b>ii, iii, vi</b> (lower case) are minor. vi in C is A minor.', kbd: 'A3:1 C4:3 E4:5', try: { t: 'chord', n: ['A3', 'C4', 'E4'], say: 'Play vi in C (A minor)' } },
+    { h: 'V', p: 'V in C = G major (G–B–D). I–IV–V–I is the most common song pattern.', kbd: 'G4:1 B4:3 D5:5', try: { t: 'chord', n: ['G4', 'B4', 'D5'], say: 'Play V in C (G major)' } },
+  ];
   const api = { steps: (id) => L[id] || [], keyboard, hand, beats, TIPS, midiOf, ids: Object.keys(L).map(Number) };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Lessons = api;
 })(typeof self !== 'undefined' ? self : this);
